@@ -296,6 +296,16 @@ function salva(ctx, e, dati = {}, figli = {}) {
       return r;
     });
   }
+  // Le righe tolte da una griglia non devono essere usate altrove.
+  for (const c of E.children) {
+    if (!nuoviFigli[c.e]) continue;
+    const tenute = new Set(nuoviFigli[c.e].map(r => r.id));
+    for (const r of figliDi(ctx, c, riga.id)) {
+      if (tenute.has(r.id)) continue;
+      const usi = riferimenti(ctx, c.e, r.id);
+      if (usi.length) errori.push(c.l + ': la riga "' + titolo(ctx, c.e, r) + '" non si può togliere perché è usata in ' + usi.join(', '));
+    }
+  }
   if (errori.length) throw new ErroreUtente('Controlla i dati inseriti:\n• ' + errori.join('\n• '), 'VALIDAZIONE');
 
   const h = HOOKS[e] || {};
@@ -342,6 +352,8 @@ function elimina(ctx, e, id) {
   if (usi.length) throw new ErroreUtente('Non è possibile eliminare questa scheda perché è usata in: ' + usi.join(', ') + '.', 'IN_USO');
   for (const c of E.children) for (const r of figliDi(ctx, c, id)) ctx.st.togli(c.e, r.id);
   ctx.st.togli(e, id);
+  const h = require('./regole').HOOKS[e];
+  if (h && h.dopoEliminazione) h.dopoEliminazione(ctx, { riga });
   registra(ctx, 'Eliminazione', E.label + ': ' + titolo(ctx, e, riga));
   return { eliminata: true };
 }
@@ -372,5 +384,5 @@ function schemaPerUtente(ctx) {
 
 module.exports = {
   ErroreUtente, nuovoId, oggi, adesso, dataIt, config, entitaAttiva, puoLeggere, puoScrivere,
-  esigi, titolo, elenco, leggi, salva, elimina, opzioni, schemaPerUtente, registra, visibile,
+  esigi, pubblica, titolo, elenco, leggi, salva, elimina, opzioni, schemaPerUtente, registra, visibile,
 };

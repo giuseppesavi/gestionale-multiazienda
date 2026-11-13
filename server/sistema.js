@@ -12,6 +12,7 @@ const { SCHEMA, ELENCHI, FATTORI_RISCHIO, DOMANDE_QUALIFICA } = require('../app/
 const lic = require('../app/licenza');
 const firme = require('../app/firme');
 const pin = require('../app/pin');
+const regole = require('../app/regole');
 
 // Tipi di file ammessi negli allegati (il tipo è dedotto dall'estensione, non da quanto dichiara il browser).
 const TIPI_FILE = {
@@ -164,6 +165,8 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
         const ctx = { st, utente, azienda: az, pacchetti: pacchettiDi(az), servizi: servizi(st, az, utente, origine) };
         const soloAdmin = () => { if (!utente.admin) throw new ErroreUtente('Operazione riservata agli amministratori.', 'PERMESSO'); };
         switch (azione) {
+          case 'azione': return regole.azione(ctx, p);
+          case 'funzione': return regole.funzione(ctx, p);
           case 'firma': return firme.firma(ctx, p);
           case 'firma.scansione': return firme.scansione(ctx, p);
           case 'firma.link': return firme.inviaLink(ctx, p);

@@ -84,7 +84,7 @@ const TESTO = `
   dataGiudizio:date "Data giudizio"
   periodicita*:select{Semestrale/Annuale/Biennale/Triennale/Quinquennale/Altra (indicare i mesi)}=Annuale "Periodicità visita"
   periodicitaMesi:number?{"periodicita":"Altra (indicare i mesi)"} "Periodicità (mesi)"
-  prossimaVisita*:date "Da sottoporre a nuova visita entro il"
+  prossimaVisita:date "Da sottoporre a nuova visita entro il"
   statoVisita:text(calc) "Stato"
   fineRapporto:bool "Prevista visita di fine rapporto (agenti cancerogeni / chimici)"
   trasmLavoratore:date "Trasmissione al lavoratore"
@@ -335,7 +335,7 @@ const TESTO = `
   denominazione*:text "Denominazione"
   indirizzo:text "Indirizzo"
   comune:text "Comune"
-  responsabileId:ref>Dipendenti "Responsabile manutenzione"
+  responsabileId*:ref>Dipendenti "Responsabile manutenzione"
   attiva:bool=SI "Attiva"
 
 # PianiManutenzione | Piani di manutenzione | Attrezzature | admin | attrezzature | figli:PianiAttivita(pianoId) | titolo:codice+descrizione
