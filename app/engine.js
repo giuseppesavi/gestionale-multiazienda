@@ -63,6 +63,13 @@ function esigi(ctx, e, scrittura) {
   return E;
 }
 
+// Visibilità della singola scheda (per esempio i documenti filtrati per mansione).
+function visibileRiga(ctx, e, riga) {
+  if (ctx.interno) return true;
+  const f = require('./regole').FILTRI[e];
+  return !f || f(ctx, riga);
+}
+
 // ---------- valori ----------
 
 function visibile(f, valori) {
@@ -231,7 +238,7 @@ function registra(ctx, evento, dettaglio) {
 
 function elenco(ctx, e, par = {}) {
   esigi(ctx, e, false);
-  let righe = [...ctx.st.tabella(e).values()];
+  let righe = [...ctx.st.tabella(e).values()].filter(r => visibileRiga(ctx, e, r));
   const q = String(par.q || '').trim().toLowerCase();
   const pub = righe.map(r => pubblica(ctx, e, r));
   const etichette = {};
@@ -247,7 +254,7 @@ function elenco(ctx, e, par = {}) {
 function leggi(ctx, e, id) {
   const E = esigi(ctx, e, false);
   const riga = ctx.st.tabella(e).get(id);
-  if (!riga) throw new ErroreUtente('La scheda non esiste più: potrebbe essere stata eliminata.');
+  if (!riga || !visibileRiga(ctx, e, riga)) throw new ErroreUtente('La scheda non esiste più: potrebbe essere stata eliminata.');
   const out = { riga: pubblica(ctx, e, riga), figli: {}, etichette: {}, titolo: titolo(ctx, e, riga), puoScrivere: puoScrivere(ctx, e) };
   if (E.signers) { const fr = require('./firme'); out.firme = fr.stato(ctx, e, id); out.firmata = fr.haFirme(ctx.st, e, id); }
   raccogliEtichette(ctx, e, [out.riga], out.etichette);
@@ -362,7 +369,7 @@ function elimina(ctx, e, id) {
 function opzioni(ctx, e) {
   entita(e);
   if (!entitaAttiva(ctx, e) || !puoLeggere(ctx, e)) return [];
-  return [...ctx.st.tabella(e).values()].map(r => ({ id: r.id, titolo: titolo(ctx, e, r) }))
+  return [...ctx.st.tabella(e).values()].filter(r => visibileRiga(ctx, e, r)).map(r => ({ id: r.id, titolo: titolo(ctx, e, r) }))
     .sort((a, b) => a.titolo.localeCompare(b.titolo, 'it'));
 }
 
@@ -384,5 +391,5 @@ function schemaPerUtente(ctx) {
 
 module.exports = {
   ErroreUtente, nuovoId, oggi, adesso, dataIt, config, entitaAttiva, puoLeggere, puoScrivere,
-  esigi, pubblica, titolo, elenco, leggi, salva, elimina, opzioni, schemaPerUtente, registra, visibile,
+  esigi, visibileRiga, pubblica, titolo, elenco, leggi, salva, elimina, opzioni, schemaPerUtente, registra, visibile,
 };

@@ -193,6 +193,8 @@ function installa(R) {
   F['documenti.nuovaRevisione'] = { entita: 'Documenti', scrive: true, fn(ctx, p) {
     const d = documento(ctx, p.id);
     if (d.stato !== 'In vigore') throw errore('Si può creare una nuova revisione solo da un documento in vigore.');
+    const aperta = tutte(ctx, 'Documenti').find(x => stessoCodice(x, d) && IN_LAVORAZIONE.includes(x.stato));
+    if (aperta) throw validazione('Esiste già una revisione in lavorazione del documento ' + d.codice + ' (revisione ' + aperta.revisione + ')');
     const n = Number(d.revisione);
     const revisione = String(p.revisione || (Number.isInteger(n) ? n + 1 : '')).trim();
     if (!revisione) throw errore('Indica il numero della nuova revisione.');

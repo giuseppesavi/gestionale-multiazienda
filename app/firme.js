@@ -152,7 +152,7 @@ function contesto(ctx, p, perGestire) {
   if (!E.signers) throw new ErroreUtente('Questa scheda non prevede firme.');
   if (perGestire && !puoScrivere(ctx, p.entita)) throw new ErroreUtente('Non hai i permessi per raccogliere questa firma.', 'PERMESSO');
   const riga = ctx.st.tabella(p.entita).get(p.id);
-  if (!riga) throw new ErroreUtente('La scheda non esiste più: potrebbe essere stata eliminata.');
+  if (!riga || !eng().visibileRiga(ctx, p.entita, riga)) throw new ErroreUtente('La scheda non esiste più: potrebbe essere stata eliminata.');
   return { E, riga, lista: firmatari(ctx, p.entita, riga) };
 }
 
@@ -167,6 +167,7 @@ function trova(ctx, e, id, lista, key) {
 function registraFirma(ctx, e, riga, s, metodo, fileId, note) {
   const { nuovoId, adesso, registra, titolo } = eng();
   const { HOOKS } = require('./regole');
+  if (HOOKS[e] && HOOKS[e].primaDiFirmare) HOOKS[e].primaDiFirmare(ctx, { riga, firmatario: s });
   const inAttesa = righe(ctx.st, e, riga.id).find(f => f.signerKey === s.key && f.stato === 'In attesa');
   const f = {
     ...(inAttesa || { id: nuovoId(), createdAt: adesso() }),

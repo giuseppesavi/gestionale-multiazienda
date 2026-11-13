@@ -13,11 +13,13 @@ Aggiornato al 13/11/2026.
 
 - **Fase 3 – Firme**: credenziali, PIN, firma su schermo, link via e-mail, scansione cartacea, attestato (corsi). Scheda in sola lettura dopo la prima firma, annullamento solo da amministratore. PIN con hash lento e blocchi. Allegati (15 MB, tipi ammessi) scaricabili solo da chi vede la scheda.
 
-I test sono ora 18 (`test/base.test.js`, `test/firme.test.js`).
+- **Fase 4 – Regole dei moduli**: interinali e storico rapporti, DPI della mansione, scadenze della formazione (aggiornamenti frazionati e decorrenze), competenze e copertura, NC/azioni e riepilogo, qualifica fornitori, tarature (punti, esito, stato strumento e campione), piani e manutenzioni (anche massiva per sede), sorveglianza sanitaria (prossima visita, registro, riservatezza), documentazione (revisioni, approvazione, distribuzione, prese visione, ritiro, collegamenti).
+
+I test sono ora 35 (`test/base`, `firme`, `moduli`, `documenti`).
 
 ## Da fare
 
-- Fase 4: regole dei singoli moduli (formazione, manutenzioni, tarature, documenti, sorveglianza…).
+- Rimasti dalla fase 4: funzione "Collega mansioni alle valutazioni"; invio e-mail del verbale DPI (dipende dai PDF); clonazione delle mansioni.
 - Fase 5: stampe PDF. Fase 6: import/export Excel ed **esportazione dei dati aziendali**.
 - Fase 7: scadenzario e cruscotto. Fase 8: pannello `/admin` (oggi esiste solo l'API).
 - Interfaccia nel browser (oggi c'è solo una pagina segnaposto).

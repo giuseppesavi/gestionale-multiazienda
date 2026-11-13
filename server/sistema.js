@@ -93,13 +93,15 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
       for (const r of ctx.st.tabella(E.name).values()) {
         if (!campi.some(f => String(r[f.name] || '').split('|')[0] === id)) continue;
         usato = true;
-        if (visibile(E.child ? E.parent : E.name)) return true;
+        const madre = E.child ? ctx.st.tabella(E.parent).get(r[SCHEMA[E.parent].children.find(c => c.e === E.name).fk]) : r;
+        if (madre && visibile(E.child ? E.parent : E.name) && eng.visibileRiga(ctx, E.child ? E.parent : E.name, madre)) return true;
       }
     }
     for (const f of ctx.st.tabella('Firme').values()) {
       if (String(f.fileId || '').split('|')[0] !== id) continue;
       usato = true;
-      if (SCHEMA[f.rifEntity] && visibile(f.rifEntity)) return true;
+      const scheda = SCHEMA[f.rifEntity] && ctx.st.tabella(f.rifEntity).get(f.rifId);
+      if (scheda && visibile(f.rifEntity) && eng.visibileRiga(ctx, f.rifEntity, scheda)) return true;
     }
     return !usato && reg.createdBy === ctx.utente.email;
   }

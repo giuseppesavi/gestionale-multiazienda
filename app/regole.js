@@ -223,7 +223,10 @@ const HOOKS = {
         if (contaAttivi(ctx.st, og) >= c.max) throw errore(messaggioLimite(c), 'LICENZA');
       }
     },
-    after(ctx, { riga }) { sincronizzaRapporti(ctx, riga); },
+    after(ctx, { riga }) {
+      sincronizzaRapporti(ctx, riga);
+      if (attivo(ctx, 'documenti')) require('./documenti').allineaDipendente(ctx, riga);
+    },
   },
 
   Corsi: {
@@ -376,6 +379,9 @@ const CALC = {
 // =====================================================================================
 // PROPOSTE PER LE MASCHERE (sola lettura: restituiscono righe da inserire nelle griglie)
 // =====================================================================================
+
+// Filtri di visibilità sulle singole schede (oltre ai permessi dell'entità).
+const FILTRI = {};
 
 const AZIONI = {
   Consegne: {
@@ -534,6 +540,8 @@ function funzione(ctx, p) {
 }
 
 module.exports = {
-  HOOKS, CALC, azione, funzione, mansioniDi, statoFormazione, formazioneRichiesta, statoStrumento, statoAttivita, attivitaInScadenza,
+  HOOKS, CALC, FILTRI, FUNZIONI, azione, funzione, mansioniDi, statoFormazione, formazioneRichiesta, statoStrumento, statoAttivita, attivitaInScadenza,
   statoSanitario, lavoratoriSoggetti, esitoQualifica, ultimaQualifica, addMesi, addGiorni, addUnita, statoScadenza,
 };
+
+require('./documenti').installa(module.exports);
