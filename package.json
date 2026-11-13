@@ -1,0 +1,20 @@
+{
+  "name": "gestionale-multiazienda",
+  "version": "0.1.0",
+  "description": "Gestionale Sicurezza & Qualità multi-azienda, con pacchetti attivabili e licenze per classi di dipendenti",
+  "private": true,
+  "main": "server/index.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test --test-reporter=spec \"test/*.test.js\""
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17"
+  }
+}
