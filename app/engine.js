@@ -230,6 +230,7 @@ function figliDi(ctx, c, idMadre) {
 // ---------- operazioni ----------
 
 function registra(ctx, evento, dettaglio) {
+  if (ctx.silenzioso) return;
   ctx.st.metti('Log', {
     id: nuovoId(), createdAt: adesso(), data: adesso(),
     email: (ctx.utente && ctx.utente.email) || 'sistema', evento, dettaglio: String(dettaglio || '').slice(0, 500),

@@ -13,6 +13,10 @@ const lic = require('../app/licenza');
 const firme = require('../app/firme');
 const pin = require('../app/pin');
 const regole = require('../app/regole');
+const importa = require('../app/importa');
+const esp = require('../app/esporta');
+const stampe = require('../app/stampe');
+const xlsx = require('./xlsx');
 
 // Tipi di file ammessi negli allegati (il tipo è dedotto dall'estensione, non da quanto dichiara il browser).
 const TIPI_FILE = {
@@ -58,6 +62,7 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
   function servizi(st, az, utente, origine) {
     return {
       postino, origine: process.env.URL_PUBBLICO || origine || '',
+      leggiFile: id => leggiContenuto(az.id, id),
       async salvaFile({ nome, mime, buffer, tipo, autore }) {
         const id = eng.nuovoId();
         await db.query('insert into files (tenant, id, nome, mime, dimensione, contenuto) values ($1, $2, $3, $4, $5, $6)', [az.id, id, nome, mime, buffer.length, buffer]);
@@ -65,6 +70,56 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
         return id + '|' + nome;
       },
     };
+  }
+
+  async function leggiContenuto(azId, id) {
+    const r = await db.query('select contenuto from files where tenant = $1 and id = $2', [azId, id]);
+    return r.rows[0] ? Buffer.from(r.rows[0].contenuto) : null;
+  }
+  const comeFile = (nome, buffer) => ({ nome, base64: buffer.toString('base64') });
+  function fileRicevuto(p) {
+    if (typeof p.base64 !== 'string' || !p.base64) throw new ErroreUtente('Scegli il file da caricare.');
+    const b = Buffer.from(p.base64, 'base64');
+    if (!b.length || b.length > MAX_FILE) throw new ErroreUtente('Il file è vuoto oppure supera i 15 MB.');
+    return b;
+  }
+
+  // Invia per e-mail il verbale di consegna DPI e annota la data.
+  async function emailConsegna(ctx, p) {
+    eng.esigi(ctx, 'Consegne', true);
+    const c = ctx.st.tabella('Consegne').get(p.id);
+    if (!c) throw new ErroreUtente('Consegna non trovata.');
+    const cfg = eng.config(ctx.st);
+    if (!cfg.emailDpi) throw new ErroreUtente('Nella configurazione dell\'azienda manca l\'indirizzo e-mail a cui inviare i verbali DPI.');
+    const pdf = await stampe.genera(ctx, { nome: 'verbaleConsegna', id: c.id });
+    const nome = eng.titolo(ctx, 'Dipendenti', ctx.st.tabella('Dipendenti').get(c.dipendenteId));
+    const oggetto = String(cfg.oggettoDpi || 'CONSEGNA DPI {NOME} E {DATA}').replace('{NOME}', nome).replace('{DATA}', eng.dataIt(c.data));
+    const ok = await postino.invia({ a: cfg.emailDpi, oggetto, testo: 'In allegato il verbale di consegna dei DPI a ' + nome + ' del ' + eng.dataIt(c.data) + '.', allegati: [{ filename: pdf.nome, content: pdf.buffer }] });
+    if (!ok) return { _errore: 'L\'e-mail non è partita. Controlla la configurazione della posta e riprova.' };
+    ctx.st.metti('Consegne', { ...c, emailInviata: eng.dataIt(eng.oggi()) });
+    eng.registra(ctx, 'E-mail', 'Verbale DPI di ' + nome + ' inviato a ' + cfg.emailDpi);
+    return { inviata: eng.dataIt(eng.oggi()) };
+  }
+
+  // Esportazione dei dati aziendali richiesta dall'amministratore dell'azienda (confermata con un codice via e-mail).
+  async function esportaPerAzienda(codice, token, p) {
+    const az = await leggiAzienda(codice);
+    if (!az || !az.attiva) throw new ErroreUtente('Azienda non trovata o non attiva.', 'AZIENDA');
+    const r = await archivio.conAzienda(az.id, async st => {
+      const utente = auth.utenteDaToken(st, token);
+      if (!utente) return { _errore: 'La sessione è scaduta. Accedi di nuovo.', _codice: 'SESSIONE' };
+      if (!utente.admin) return { _errore: 'L\'esportazione dei dati è riservata agli amministratori.', _codice: 'PERMESSO' };
+      if (!auth.controllaCodice(st, 'esporta:' + utente.email, p && p.codice)) return { _errore: 'Codice di conferma non valido o scaduto. Richiedine uno nuovo.' };
+      const ctx = { st, utente, azienda: az, pacchetti: pacchettiDi(az), servizi: servizi(st, az, utente) };
+      return esp.esportaAzienda(ctx, p || {}, id => leggiContenuto(az.id, id));
+    });
+    if (r && r._errore) throw new ErroreUtente(r._errore, r._codice);
+    return r;
+  }
+  async function esportaDaPiattaforma(codice, p) {
+    const az = await leggiAzienda(codice);
+    if (!az) throw new ErroreUtente('Azienda non trovata.');
+    return archivio.conAzienda(az.id, async st => esp.esportaAzienda(ctxInterno(st, az), p || {}, id => leggiContenuto(az.id, id)));
   }
 
   async function caricaFile(ctx, p) {
@@ -167,6 +222,25 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
         const ctx = { st, utente, azienda: az, pacchetti: pacchettiDi(az), servizi: servizi(st, az, utente, origine) };
         const soloAdmin = () => { if (!utente.admin) throw new ErroreUtente('Operazione riservata agli amministratori.', 'PERMESSO'); };
         switch (azione) {
+          case 'stampa': { const f = await stampe.genera(ctx, p); return comeFile(f.nome, f.buffer); }
+          case 'esporta': { const f = esp.esporta(ctx, p); return comeFile(f.nome, xlsx.scrivi(f.fogli)); }
+          case 'scheda.dipendente': return esp.schedaDipendente(ctx, p.id);
+          case 'consegna.email': return emailConsegna(ctx, p);
+          case 'import.modello': { const f = importa.modello(ctx, p.tipo); return comeFile(f.nome, xlsx.scrivi(f.fogli)); }
+          case 'import.esegui': {
+            let fogli;
+            try { fogli = xlsx.leggi(fileRicevuto(p)); } catch (e) { if (e.utente) throw e; throw new ErroreUtente('Non riesco a leggere il file: usa il modello Excel (.xlsx) oppure un file .csv.'); }
+            const rep = importa.esegui(ctx, p.tipo, fogli, !!p.prova);
+            if (p.prova) throw { annulla: rep };   // la verifica non scrive nulla: tutte le modifiche vengono scartate
+            return rep;
+          }
+          case 'esporta.richiedi': {
+            soloAdmin();
+            const { codice, minuti } = auth.nuovoCodice(st, 'esporta:' + utente.email);
+            postino.invia({ a: utente.email, segreto: true, oggetto: 'Codice di conferma per l\'esportazione dei dati – ' + az.nome,
+              testo: 'Il codice per confermare l\'esportazione dei dati aziendali è: ' + codice + '\n\nÈ valido per ' + minuti + ' minuti.\nSe non hai richiesto tu l\'esportazione, avvisa subito il fornitore del servizio.' }).catch(() => {});
+            return { messaggio: 'Ti abbiamo inviato via e-mail un codice di conferma.' };
+          }
           case 'azione': return regole.azione(ctx, p);
           case 'funzione': return regole.funzione(ctx, p);
           case 'firma': return firme.firma(ctx, p);
@@ -202,6 +276,7 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
       if (r && r._errore) throw new ErroreUtente(r._errore, r._codice);
       return r;
     } catch (e) {
+      if (e && e.annulla) return e.annulla;
       if (e.codice === 'LICENZA') await notificaLicenza(az).catch(x => console.error('Avviso licenza:', x.message));
       throw e;
     }
@@ -283,6 +358,37 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
       return { codice: az.id, ...nuova };
     },
 
+    // Ricrea un'azienda da un archivio esportato (dati-ripristino.json e, se presenti, gli allegati).
+    async 'aziende.ripristina'(p) {
+      const codice = String(p.codice || '').trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9-]{1,29}$/.test(codice)) throw new ErroreUtente('Il codice azienda deve avere da 2 a 30 caratteri: lettere minuscole, numeri e trattini.');
+      if (await leggiAzienda(codice)) throw new ErroreUtente('Esiste già un\'azienda con questo codice.');
+      if (typeof p.archivio !== 'string' || !p.archivio) throw new ErroreUtente('Scegli l\'archivio .zip da ripristinare.');
+      const { dati, allegati } = esp.leggiEsportazione(Buffer.from(p.archivio, 'base64'));
+      const c = lic.classe(p.classe || dati.azienda.classe);
+      if (!c) throw new ErroreUtente('Classe di dipendenti non valida.');
+      const og = eng.oggi();
+      const attivi = (dati.tabelle.Dipendenti || []).filter(d => !lic.cessato(d, og)).length;
+      if (attivi > c.max) throw new ErroreUtente('L\'archivio contiene ' + attivi + ' addetti attivi: serve una classe più alta di ' + c.etichetta + '.');
+      const pacchetti = normPacchetti(p.pacchetti || (dati.azienda.pacchetti || []).filter(lic.pacchettoValido));
+      const admin = (dati.tabelle.Dipendenti || []).find(d => d.utente === 'SI' && d.ruolo === 'Amministratore');
+      const registro = new Map((dati.tabelle.FileReg || []).map(f => [f.id, f]));
+      await db.tx(async t => {
+        await t.query('insert into tenants (id, nome, email_admin, classe, pacchetti) values ($1, $2, $3, $4, $5::jsonb)',
+          [codice, String(p.nome || dati.azienda.nome || codice), admin ? admin.email : '', c.id, JSON.stringify(pacchetti)]);
+        for (const [e, righe] of Object.entries(dati.tabelle)) for (const r of righe) {
+          if (r && typeof r.id === 'string') await t.query('insert into rows (tenant, sheet, id, data) values ($1, $2, $3, $4::jsonb)', [codice, e, r.id, JSON.stringify(r)]);
+        }
+        await t.query('insert into props (tenant, key, value) values ($1, $2, $3::jsonb), ($1, $4, $5::jsonb)', [codice, 'config', JSON.stringify(dati.config || {}), 'setup', '1']);
+        for (const a of allegati) {
+          const f = registro.get(a.id);
+          if (f) await t.query('insert into files (tenant, id, nome, mime, dimensione, contenuto) values ($1, $2, $3, $4, $5, $6)', [codice, a.id, f.nome, f.mime, a.contenuto.length, a.contenuto]);
+        }
+      });
+      archivio.dimentica(codice);
+      return { codice, tabelle: Object.keys(dati.tabelle).length, allegati: allegati.length };
+    },
+
     async 'aziende.elimina'(p) {
       const az = await leggiAzienda(p.codice);
       if (!az) throw new ErroreUtente('Azienda non trovata.');
@@ -361,6 +467,15 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
     } catch (e) { rispostaErrore(res, e); }
   });
 
+  const inviaZip = (res, f) => { res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="' + f.nome + '"', 'Cache-Control': 'private, no-store' }); res.send(f.buffer); };
+  app.post('/a/:azienda/esporta', async (req, res) => {
+    try { inviaZip(res, await esportaPerAzienda(req.params.azienda, req.get('X-Session'), req.body)); } catch (e) { rispostaErrore(res, e); }
+  });
+  app.post('/admin/esporta', async (req, res) => {
+    if (!chiaveValida(req.get('X-Admin-Key'))) { await new Promise(r => setTimeout(r, 400)); return res.status(401).json({ ok: false, error: 'Chiave di amministrazione non valida.' }); }
+    try { inviaZip(res, await esportaDaPiattaforma((req.body || {}).codice, req.body)); } catch (e) { rispostaErrore(res, e); }
+  });
+
   app.post('/admin/api', async (req, res) => {
     if (!chiaveValida(req.get('X-Admin-Key'))) {
       await new Promise(r => setTimeout(r, 400)); // ritardo dopo una chiave errata
@@ -375,7 +490,7 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
   app.use(express.static(path.join(__dirname, '..', 'app', 'public')));
   app.use((err, req, res, next) => { res.status(400).json({ ok: false, error: 'Richiesta non valida.' }); });
 
-  return { api, admin, app, archivio, auth, scaricaFile, SCHEMA };
+  return { api, admin, app, archivio, auth, scaricaFile, esportaPerAzienda, esportaDaPiattaforma, SCHEMA };
 }
 
 module.exports = { creaSistema };

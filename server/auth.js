@@ -56,6 +56,15 @@ function creaAuth({ postino }) {
     return { codice, minuti };
   }
 
+  // Verifica un codice di conferma generato con nuovoCodice (monouso, 5 tentativi).
+  function controllaCodice(st, chiave, codice) {
+    const rec = st.prop('otp:' + chiave);
+    if (!rec || rec.scad < Date.now() || rec.tent >= 5) return false;
+    const ok = crypto.timingSafeEqual(Buffer.from(rec.h, 'hex'), Buffer.from(sha(rec.sale + String(codice || '').trim()), 'hex'));
+    st.setProp('otp:' + chiave, ok ? null : { ...rec, tent: rec.tent + 1 });
+    return ok;
+  }
+
   function richiedi(st, azienda, emailGrezza, ip) {
     const email = norm(emailGrezza);
     const risposta = { messaggio: RISPOSTA_CODICE };
@@ -133,7 +142,7 @@ function creaAuth({ postino }) {
 
   function esci(st, token) { if (token) st.setProp('sess:' + sha(token), null); return { uscito: true }; }
 
-  return { richiedi, verifica, utenteDaToken, esci, nuovoCodice, trovaUtente };
+  return { controllaCodice, richiedi, verifica, utenteDaToken, esci, nuovoCodice, trovaUtente };
 }
 
 module.exports = { creaAuth };

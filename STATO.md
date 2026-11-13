@@ -15,12 +15,16 @@ Aggiornato al 13/11/2026.
 
 - **Fase 4 – Regole dei moduli**: interinali e storico rapporti, DPI della mansione, scadenze della formazione (aggiornamenti frazionati e decorrenze), competenze e copertura, NC/azioni e riepilogo, qualifica fornitori, tarature (punti, esito, stato strumento e campione), piani e manutenzioni (anche massiva per sede), sorveglianza sanitaria (prossima visita, registro, riservatezza), documentazione (revisioni, approvazione, distribuzione, prese visione, ritiro, collegamenti).
 
-I test sono ora 35 (`test/base`, `firme`, `moduli`, `documenti`).
+- **Fase 5 – Stampe PDF**: 22 stampe (A4, intestazione azienda, firme con immagine, QR, piè di pagina); invio e-mail del verbale DPI.
+- **Fase 6 – Excel**: lettura/scrittura .xlsx e .csv; 6 import (modello, verifica senza scrittura, importa); export di scheda dipendente, registro strumenti, registro sanitario.
+- **Esportazione dei dati aziendali**: archivio .zip con Excel leggibile, file di ripristino e allegati; per pacchetti; confermata con codice via e-mail (azienda) o con la chiave della piattaforma; ripristino in una nuova azienda.
+
+I test sono ora 44 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`). File di esempio: `node test/esempi.js` (cartella `esempi/`).
 
 ## Da fare
 
-- Rimasti dalla fase 4: funzione "Collega mansioni alle valutazioni"; invio e-mail del verbale DPI (dipende dai PDF); clonazione delle mansioni.
-- Fase 5: stampe PDF. Fase 6: import/export Excel ed **esportazione dei dati aziendali**.
+- Rimasto dalla fase 4: funzione "Collega mansioni alle valutazioni".
+- Import di tutti i dati dalla versione Google Fogli (pannello piattaforma).
 - Fase 7: scadenzario e cruscotto. Fase 8: pannello `/admin` (oggi esiste solo l'API).
 - Interfaccia nel browser (oggi c'è solo una pagina segnaposto).
 - Fase 9: limiti di frequenza, upload, riserva SMTP. Fase 10: test nel browser.

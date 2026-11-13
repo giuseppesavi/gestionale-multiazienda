@@ -24,7 +24,7 @@ function creaPostino(env = process.env) {
   async function invia(m) {
     if (!trasporto) { annota(m, 'Non inviata: posta non configurata', false); return false; }
     try {
-      await trasporto.sendMail({ from: env.SMTP_FROM || env.SMTP_USER, to: m.a, subject: m.oggetto, text: m.testo });
+      await trasporto.sendMail({ from: env.SMTP_FROM || env.SMTP_USER, to: m.a, subject: m.oggetto, text: m.testo, attachments: m.allegati });
       annota(m, 'Inviata', true);
       return true;
     } catch (e) {

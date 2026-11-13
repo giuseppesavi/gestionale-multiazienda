@@ -37,6 +37,7 @@ const tutte = (ctx, e) => [...ctx.st.tabella(e).values()];
 const una = (ctx, e, id) => (id ? ctx.st.tabella(e).get(id) : undefined);
 function figli(ctx, e, fk, id) { return tutte(ctx, e).filter(r => r[fk] === id).sort((a, b) => (a._ord || 0) - (b._ord || 0)); }
 const attivo = (ctx, pack) => ctx.pacchetti.has(pack);
+const SCHEMA_PACK = e => require('./schema').SCHEMA[e].pack;
 const nomeDip = d => (d ? (d.cognome + ' ' + d.nome).trim() : '');
 
 // ---------- dipendenti ----------
@@ -477,6 +478,18 @@ const FUNZIONI = {
     sincronizzaRapporti(ctx, nuovo);
     registra(ctx, 'Assunzione diretta', nomeDip(d));
     return leggi(ctx, 'Dipendenti', d.id);
+  } },
+
+  // Clona una mansione con competenze, DPI e corsi; serve un nuovo codice.
+  'mansioni.clona': { entita: 'Mansioni', scrive: true, fn(ctx, p) {
+    const m = una(ctx, 'Mansioni', p.id);
+    if (!m) throw errore('Mansione non trovata.');
+    if (!String(p.codice || '').trim()) throw validazione('«Codice mansione»: indica il codice della nuova mansione');
+    const copia = (e, fk, campi) => (attivo(ctx, SCHEMA_PACK(e)) ? figli(ctx, e, fk, m.id).map(r => Object.fromEntries(campi.map(c => [c, r[c]]))) : undefined);
+    return eng().salva(ctx, 'Mansioni', { ...m, id: undefined, codice: String(p.codice).trim(), descrizione: p.descrizione || m.descrizione + ' (copia)' }, {
+      MansioniCompetenze: copia('MansioniCompetenze', 'mansioneId', ['competenzaId', 'valoreAtteso']),
+      MansioniDpi: copia('MansioniDpi', 'mansioneId', ['dpiId', 'quantita']),
+      MansioniCorsi: copia('MansioniCorsi', 'mansioneId', ['tipoCorsoId', 'note']) });
   } },
 
   'nc.riepilogo': { entita: 'NC', fn(ctx, p) {
