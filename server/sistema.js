@@ -10,6 +10,17 @@ const eng = require('../app/engine');
 const { ErroreUtente } = eng;
 const { SCHEMA, ELENCHI, FATTORI_RISCHIO, DOMANDE_QUALIFICA } = require('../app/schema');
 const lic = require('../app/licenza');
+const firme = require('../app/firme');
+const pin = require('../app/pin');
+
+// Tipi di file ammessi negli allegati (il tipo è dedotto dall'estensione, non da quanto dichiara il browser).
+const TIPI_FILE = {
+  pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', heic: 'image/heic', webp: 'image/webp',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  odt: 'application/vnd.oasis.opendocument.text', ods: 'application/vnd.oasis.opendocument.spreadsheet', csv: 'text/csv',
+};
+const MAX_FILE = 15 * 1024 * 1024;
 
 function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
   const archivio = new Archivio(db);
@@ -41,6 +52,77 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
     st.setProp('setup', 1);
   }
 
+  // ---------- allegati ----------
+
+  function servizi(st, az, utente, origine) {
+    return {
+      postino, origine: process.env.URL_PUBBLICO || origine || '',
+      async salvaFile({ nome, mime, buffer, tipo, autore }) {
+        const id = eng.nuovoId();
+        await db.query('insert into files (tenant, id, nome, mime, dimensione, contenuto) values ($1, $2, $3, $4, $5, $6)', [az.id, id, nome, mime, buffer.length, buffer]);
+        st.metti('FileReg', { id, nome, mime, tipo: tipo || 'allegato', createdBy: autore || (utente && utente.email) || 'sistema', createdAt: eng.adesso() });
+        return id + '|' + nome;
+      },
+    };
+  }
+
+  async function caricaFile(ctx, p) {
+    const nome = String(p.nome || '').replace(/^.*[\\/]/, '').replace(/[|\u0000-\u001f]/g, '').trim().slice(0, 150);
+    const est = (/\.([A-Za-z0-9]+)$/.exec(nome) || [])[1];
+    const mime = est && TIPI_FILE[est.toLowerCase()];
+    if (!nome || !mime) throw new ErroreUtente('Tipo di file non ammesso. Puoi caricare PDF, immagini, Word, Excel, ODT, ODS e CSV.');
+    if (typeof p.base64 !== 'string' || !/^[A-Za-z0-9+/=\s]*$/.test(p.base64)) throw new ErroreUtente('Il file non è stato ricevuto correttamente. Riprova.');
+    const buffer = Buffer.from(p.base64, 'base64');
+    if (!buffer.length) throw new ErroreUtente('Il file è vuoto.');
+    if (buffer.length > MAX_FILE) throw new ErroreUtente('Il file supera la dimensione massima di 15 MB.');
+    return { valore: await ctx.servizi.salvaFile({ nome, mime, buffer }) };
+  }
+
+  // Un file è scaricabile solo se appartiene a una scheda visibile all'utente,
+  // oppure se l'ha caricato lui e non è ancora stato salvato in nessuna scheda.
+  function fileVisibile(ctx, id) {
+    const reg = ctx.st.tabella('FileReg').get(id);
+    if (!reg) return false;
+    let usato = false;
+    const visibile = e => eng.entitaAttiva(ctx, e) && eng.puoLeggere(ctx, e);
+    for (const E of Object.values(SCHEMA)) {
+      if (E.name === 'Firme') continue;
+      const campi = E.fields.filter(f => f.type === 'file');
+      if (!campi.length) continue;
+      for (const r of ctx.st.tabella(E.name).values()) {
+        if (!campi.some(f => String(r[f.name] || '').split('|')[0] === id)) continue;
+        usato = true;
+        if (visibile(E.child ? E.parent : E.name)) return true;
+      }
+    }
+    for (const f of ctx.st.tabella('Firme').values()) {
+      if (String(f.fileId || '').split('|')[0] !== id) continue;
+      usato = true;
+      if (SCHEMA[f.rifEntity] && visibile(f.rifEntity)) return true;
+    }
+    return !usato && reg.createdBy === ctx.utente.email;
+  }
+
+  async function scaricaFile(codice, token, id) {
+    const az = await leggiAzienda(codice);
+    if (!az || !az.attiva) return null;
+    const reg = await archivio.conAzienda(az.id, async st => {
+      const utente = auth.utenteDaToken(st, token);
+      if (!utente) return null;
+      const ctx = { st, utente, azienda: az, pacchetti: pacchettiDi(az) };
+      return fileVisibile(ctx, id) ? st.tabella('FileReg').get(id) : null;
+    });
+    if (!reg) return null;
+    const r = await db.query('select contenuto from files where tenant = $1 and id = $2', [az.id, id]);
+    return r.rows[0] ? { nome: reg.nome, mime: reg.mime, buffer: Buffer.from(r.rows[0].contenuto) } : null;
+  }
+
+  async function sessioneValida(codice, token) {
+    const az = await leggiAzienda(codice);
+    if (!az || !az.attiva) return false;
+    return archivio.conAzienda(az.id, async st => !!auth.utenteDaToken(st, token));
+  }
+
   // Segnalazione della necessità di estendere la licenza (al massimo una e-mail al giorno).
   async function notificaLicenza(az) {
     await archivio.conAzienda(az.id, async st => {
@@ -63,7 +145,7 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
 
   // ---------- API delle aziende ----------
 
-  async function api(codice, args, ip) {
+  async function api(codice, args, ip, origine) {
     const [token, azione, par] = Array.isArray(args) ? args : [];
     const p = par && typeof par === 'object' ? par : {};
     const az = await leggiAzienda(codice);
@@ -73,10 +155,30 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
         prepara(st, az);
         if (azione === 'otp.richiedi') return auth.richiedi(st, az, p.email, ip);
         if (azione === 'otp.verifica') return auth.verifica(st, az, p.email, p.codice, ip);
+        if (azione === 'firmalink.info' || azione === 'firmalink.firma') {
+          const c = { st, utente: null, azienda: az, pacchetti: pacchettiDi(az), servizi: servizi(st, az, null, origine) };
+          return azione === 'firmalink.info' ? firme.linkInfo(c, p.token) : firme.linkFirma(c, p);
+        }
         const utente = auth.utenteDaToken(st, token);
         if (!utente) return { _errore: 'La sessione è scaduta. Accedi di nuovo.', _codice: 'SESSIONE' };
-        const ctx = { st, utente, azienda: az, pacchetti: pacchettiDi(az) };
+        const ctx = { st, utente, azienda: az, pacchetti: pacchettiDi(az), servizi: servizi(st, az, utente, origine) };
+        const soloAdmin = () => { if (!utente.admin) throw new ErroreUtente('Operazione riservata agli amministratori.', 'PERMESSO'); };
         switch (azione) {
+          case 'firma': return firme.firma(ctx, p);
+          case 'firma.scansione': return firme.scansione(ctx, p);
+          case 'firma.link': return firme.inviaLink(ctx, p);
+          case 'firma.annulla': return firme.annulla(ctx, p);
+          case 'file.carica': return caricaFile(ctx, p);
+          case 'pin.imposta': soloAdmin(); return pin.imposta(ctx, p.dipId, p.pin);
+          case 'pin.cambia': {
+            if (st.tabella('Dipendenti').get(utente.id).pinHash) {
+              const err = pin.verifica(ctx, utente.id, p.attuale);
+              if (err) return { _errore: err === 'PIN non corretto.' ? 'Il PIN attuale non è corretto.' : err };
+            }
+            if (!pin.pinValido(p.nuovo)) throw new ErroreUtente('Il PIN deve essere composto da 4 a 8 cifre.');
+            return pin.imposta(ctx, utente.id, p.nuovo);
+          }
+          case 'accesso.sblocca': soloAdmin(); return pin.sblocca(ctx, p.dipId);
           case 'esci': return auth.esci(st, token);
           case 'avvio': return {
             utente, azienda: { codice: az.id, nome: az.nome },
@@ -224,14 +326,33 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
     });
     next();
   });
-  app.use(express.json({ limit: '1mb' }));
+  // Le richieste oltre 1 MB (caricamento di allegati) sono accettate solo con una sessione valida.
+  app.use('/a/:azienda/run', async (req, res, next) => {
+    try {
+      const n = Number(req.get('content-length'));
+      if (!Number.isFinite(n)) return res.status(411).json({ ok: false, error: 'Richiesta non valida.' });
+      if (n <= 1024 * 1024) return next();
+      if (n <= 22 * 1024 * 1024 && await sessioneValida(req.params.azienda, req.get('X-Session'))) return next();
+      res.status(413).json({ ok: false, error: 'Richiesta troppo grande.' });
+    } catch (e) { rispostaErrore(res, e); }
+  });
+  app.use(express.json({ limit: '22mb' }));
   app.get('/health', (req, res) => res.json({ ok: true }));
 
   app.post('/a/:azienda/run', async (req, res) => {
     try {
       const b = req.body || {};
       if (b.fn !== 'api') throw new ErroreUtente('Richiesta non valida.');
-      res.json({ ok: true, data: await api(req.params.azienda, b.args, req.ip) });
+      res.json({ ok: true, data: await api(req.params.azienda, b.args, req.ip, req.protocol + '://' + req.get('host')) });
+    } catch (e) { rispostaErrore(res, e); }
+  });
+
+  app.get('/a/:azienda/file/:id', async (req, res) => {
+    try {
+      const f = await scaricaFile(req.params.azienda, req.get('X-Session'), req.params.id);
+      if (!f) return res.status(404).json({ ok: false, error: 'File non trovato o non accessibile.' });
+      res.set({ 'Content-Type': f.mime, 'Content-Disposition': "attachment; filename*=UTF-8''" + encodeURIComponent(f.nome), 'Cache-Control': 'private, no-store' });
+      res.send(f.buffer);
     } catch (e) { rispostaErrore(res, e); }
   });
 
@@ -249,7 +370,7 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
   app.use(express.static(path.join(__dirname, '..', 'app', 'public')));
   app.use((err, req, res, next) => { res.status(400).json({ ok: false, error: 'Richiesta non valida.' }); });
 
-  return { api, admin, app, archivio, auth, SCHEMA };
+  return { api, admin, app, archivio, auth, scaricaFile, SCHEMA };
 }
 
 module.exports = { creaSistema };

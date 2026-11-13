@@ -123,6 +123,11 @@ function normalizza(ctx, f, v, errori) {
       if (ids.some(i => !t.has(i))) return err('una delle schede collegate non esiste più');
       return [...new Set(ids)].join(',');
     }
+    case 'file': {
+      v = String(v).trim();
+      if (v && !ctx.st.tabella('FileReg').has(v.split('|')[0])) return err('allegato non trovato: caricalo di nuovo');
+      return v;
+    }
     default: {
       v = String(v).trim();
       // Protezione dalle formule: i testi che iniziano con = + - @ vengono neutralizzati.
@@ -244,6 +249,7 @@ function leggi(ctx, e, id) {
   const riga = ctx.st.tabella(e).get(id);
   if (!riga) throw new ErroreUtente('La scheda non esiste più: potrebbe essere stata eliminata.');
   const out = { riga: pubblica(ctx, e, riga), figli: {}, etichette: {}, titolo: titolo(ctx, e, riga), puoScrivere: puoScrivere(ctx, e) };
+  if (E.signers) { const fr = require('./firme'); out.firme = fr.stato(ctx, e, id); out.firmata = fr.haFirme(ctx.st, e, id); }
   raccogliEtichette(ctx, e, [out.riga], out.etichette);
   for (const c of E.children) {
     if (!entitaAttiva(ctx, c.e)) continue;
@@ -259,6 +265,9 @@ function salva(ctx, e, dati = {}, figli = {}) {
   const tab = ctx.st.tabella(e);
   const vecchia = dati.id ? tab.get(dati.id) : null;
   if (dati.id && !vecchia) throw new ErroreUtente('La scheda non esiste più: potrebbe essere stata eliminata.');
+  if (vecchia && E.signers && !ctx.interno && require('./firme').haFirme(ctx.st, e, vecchia.id)) {
+    throw new ErroreUtente('Questa scheda è già stata firmata e non si può più modificare. Per cambiarla, un amministratore deve prima annullare le firme.', 'FIRMATA');
+  }
 
   const errori = [];
   const riga = componi(ctx, E, dati, vecchia, errori);
@@ -325,6 +334,10 @@ function elimina(ctx, e, id) {
   const riga = ctx.st.tabella(e).get(id);
   if (!riga) throw new ErroreUtente('La scheda non esiste più: potrebbe essere stata eliminata.');
   if (e === 'Dipendenti' && ctx.utente && ctx.utente.id === id) throw new ErroreUtente('Non puoi eliminare la tua stessa scheda.');
+  if (E.signers && !ctx.interno && require('./firme').haFirme(ctx.st, e, id)) {
+    throw new ErroreUtente('Questa scheda è firmata e non si può eliminare. Un amministratore deve prima annullare le firme.', 'FIRMATA');
+  }
+  for (const f of [...ctx.st.tabella('Firme').values()]) if (f.rifEntity === e && f.rifId === id && f.stato === 'In attesa') ctx.st.togli('Firme', f.id);
   const usi = riferimenti(ctx, e, id);
   if (usi.length) throw new ErroreUtente('Non è possibile eliminare questa scheda perché è usata in: ' + usi.join(', ') + '.', 'IN_USO');
   for (const c of E.children) for (const r of figliDi(ctx, c, id)) ctx.st.togli(c.e, r.id);
@@ -359,5 +372,5 @@ function schemaPerUtente(ctx) {
 
 module.exports = {
   ErroreUtente, nuovoId, oggi, adesso, dataIt, config, entitaAttiva, puoLeggere, puoScrivere,
-  titolo, elenco, leggi, salva, elimina, opzioni, schemaPerUtente, registra, visibile,
+  esigi, titolo, elenco, leggi, salva, elimina, opzioni, schemaPerUtente, registra, visibile,
 };
