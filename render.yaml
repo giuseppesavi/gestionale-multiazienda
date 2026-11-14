@@ -26,18 +26,11 @@ services:
           property: connectionString
       - key: ADMIN_KEY          # chiave del pannello /admin, generata da Render
         generateValue: true
-      - key: PIATTAFORMA_EMAIL  # indirizzo del fornitore per le segnalazioni di licenza
-        sync: false
-      - key: SMTP_HOST          # posta in uscita (facoltativa: si può impostare in seguito)
-        sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: SMTP_FROM
-        sync: false
+      # Posta: sul piano gratuito Render blocca l'invio di e-mail (porte SMTP chiuse).
+      # Il gestionale funziona anche senza: i codici di accesso si generano dal pannello /admin
+      # (pulsante "Accessi") e le e-mail non partite restano leggibili nel registro della posta.
+      # Quando servirà, aggiungere a mano nel servizio: PIATTAFORMA_EMAIL, SMTP_HOST, SMTP_PORT,
+      # SMTP_USER, SMTP_PASS, SMTP_FROM.
 
 databases:
   - name: gestionale-multiazienda-db
