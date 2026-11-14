@@ -123,7 +123,7 @@ async function esportaAzienda(ctx, p, leggiFile) {
   const scelti = new Set(['base', ...(Array.isArray(p.pacchetti) && p.pacchetti.length ? p.pacchetti.filter(x => disponibili.includes(x)) : disponibili)]);
   const note = [];
   const entita = Object.values(SCHEMA).filter(E => {
-    if (!scelti.has(E.pack)) return false;
+    if (!E.packs.some(x => scelti.has(x))) return false;
     if (E.perm === 'san' && !ctx.interno && !eng.puoLeggere(ctx, E.name)) { note.push('Sorveglianza sanitaria esclusa: chi ha esportato non è autorizzato a vederla.'); return false; }
     return true;
   });

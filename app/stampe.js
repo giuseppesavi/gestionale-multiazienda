@@ -208,6 +208,23 @@ const STAMPE = {
       r.map(x => [x.nome, x.mansioni, D(x.dataVisita), x.giudizio || '', D(x.prossimaVisita), x.stato]), ['*', '*', 55, 90, 55, 70])] };
   },
 
+  // Piano di gestione dei rischi / delle opportunità: scopo, metodo, registro, efficacia.
+  pianoRischi: async (ctx, p) => {
+    eng.esigi(ctx, 'Rischi', false);
+    const d = require('./rischi').datiPiano(ctx, p.registroId || p.id), def = d.metodo.definizione;
+    const val = v => (v ? { text: T(v.punteggio + ' ' + v.classe), color: v.colore, bold: true } : '-');
+    return { titolo: 'Piano di gestione - ' + d.registro.nome, nome: 'Piano di gestione ' + d.registro.nome, orizzontale: true, content: [
+      sezione('Scopo'), paragrafo('Il presente piano documenta il registro «' + d.registro.nome + '», la valutazione delle voci con il metodo «' + d.metodo.nome + '», il trattamento pianificato e le azioni con i relativi responsabili e scadenze.'),
+      sezione('Metodo di valutazione'), tabella(['Fattore', 'Livelli'], def.fattori.map(f => [f.codice + ' - ' + f.nome, f.livelli.map(l => l[0] + ' = ' + l[1]).join('; ')]), [200, '*']),
+      paragrafo('Il punteggio è il prodotto dei fattori. Classi:'),
+      tabella(['Classe', 'Intervallo', 'Indicazione', 'Riesame (mesi)'], def.classi.map(c => [{ text: T(c.nome), color: c.colore, bold: true }, c.min + ' - ' + c.max, c.indicazione, String(c.riesameMesi)]), [120, 70, '*', 80]),
+      sezione('Registro'), tabella(['Codice', 'Processo', 'Descrizione', 'Causa / effetto', 'Valutazione', 'Trattamento e azioni', 'Residua', 'Responsabile', 'Riesame'],
+        d.righe.map(r => [r.codice, r.processo || '-', r.descrizione, [r.causa, r.effetto].filter(Boolean).join(' / '), val(r.valIniziale),
+          [r.trattamento, ...r.azioni.map(a => '- ' + a.descrizione + ' (' + a.responsabile + ', entro ' + D(a.scadenza) + ', ' + a.stato.toLowerCase() + ')')].filter(Boolean).join('\n'),
+          val(r.valResidua), r.responsabile, D(r.prossimoRiesame)]), [42, 70, '*', '*', 55, '*', 55, 70, 50]),
+      sezione('Valutazione dell\'efficacia'), paragrafo('L\'efficacia delle azioni è valutata alla loro chiusura e in sede di riesame di direzione; gli esiti sono riportati nel registro.')] };
+  },
+
   elencoDocumenti: async ctx => {
     soloAdmin(ctx); eng.esigi(ctx, 'Documenti', false);
     const docs = tutte(ctx, 'Documenti').filter(d => d.stato === 'In vigore').sort((a, b) => a.codice.localeCompare(b.codice, 'it'));

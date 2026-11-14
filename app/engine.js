@@ -33,7 +33,7 @@ function entita(e) {
   if (!E) throw new ErroreUtente('Scheda non riconosciuta.');
   return E;
 }
-function entitaAttiva(ctx, e) { return ctx.pacchetti.has(SCHEMA[e].pack); }
+function entitaAttiva(ctx, e) { return SCHEMA[e].packs.some(p => ctx.pacchetti.has(p)); }
 function campoAttivo(ctx, f) { return !f.ref || entitaAttiva(ctx, f.ref); }
 
 function sanitariaOk(ctx) {

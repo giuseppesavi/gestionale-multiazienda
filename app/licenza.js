@@ -20,6 +20,7 @@ const PACCHETTI = [
   { id: 'fornitori', nome: 'Qualifica fornitori' },
   { id: 'strumenti', nome: 'Strumenti di misura' },
   { id: 'documenti', nome: 'Documentazione' },
+  { id: 'rischi', nome: 'Rischi e opportunità' },
 ];
 
 function classe(id) { return CLASSI.find(c => c.id === Number(id)) || null; }

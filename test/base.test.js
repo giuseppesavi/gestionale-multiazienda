@@ -32,11 +32,11 @@ test.before(async () => {
     admin: { cognome: 'Bianchi', nome: 'Anna', email: 'anna@bianchi.it' } });
 });
 
-test('schema: 43 entità, tutte assegnate a un pacchetto valido', () => {
+test('schema: 47 entità, tutte assegnate a un pacchetto valido', () => {
   const { PACCHETTI } = require('../app/licenza');
   const ids = new Set(PACCHETTI.map(p => p.id));
-  assert.equal(Object.keys(sis.SCHEMA).length, 43);
-  for (const E of Object.values(sis.SCHEMA)) assert.ok(ids.has(E.pack), E.name);
+  assert.equal(Object.keys(sis.SCHEMA).length, 47);
+  for (const E of Object.values(sis.SCHEMA)) for (const p of E.packs) assert.ok(ids.has(p), E.name);
 });
 
 test('creazione azienda: codice doppio e dati mancanti rifiutati', async () => {

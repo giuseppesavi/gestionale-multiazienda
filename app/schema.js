@@ -120,18 +120,60 @@ const TESTO = `
   costo:number "Costo unitario €"
   totale:text(calc) "Totale €"
 
-# Azioni | Azioni di miglioramento | Registrazioni | reg | nc | titolo:numero | auto:AZ
+# Azioni | Azioni di miglioramento | Registrazioni | reg | nc+rischi | titolo:numero | auto:AZ
   numero:auto "Numero"
   ncId:ref>NC "NC di riferimento"
+  rischioId:ref>Rischi "Rischio / opportunità di riferimento"
   data*:date=today "Data"
   stato:select{Aperta/In corso/Chiusa}=Aperta "Stato"
   descrizione*:textarea "Descrizione"
   responsabileId:ref>Dipendenti "Responsabile"
   dataPrevChiusura:date "Data prevista chiusura"
   dataChiusura:date "Data chiusura effettiva"
+  noteEsecuzione:textarea "Cosa è stato fatto"
+  esitoEfficacia:select{Efficace/Non efficace} "Esito della verifica di efficacia"
   effValutazione:textarea "Valutazione efficacia"
   effData:date "Data valutazione"
   effValutatoreId:ref>Dipendenti "Dipendente valutatore"
+
+# Processi | Processi | Rischi e opportunità | admin | rischi | titolo:codice+descrizione
+  codice*!:text "Codice processo"
+  descrizione*:text "Processo"
+  responsabileId:ref>Dipendenti "Responsabile del processo"
+
+# MetodiRischio | Metodi di valutazione | Rischi e opportunità | admin | rischi | titolo:nome
+  nome*:text "Nome del metodo"
+  riepilogo:text(calc) "Fattori e classi"
+  attivo:bool=SI "Attivo"
+  definizione:hidden
+
+# RegistriRischio | Registri dei rischi | Rischi e opportunità | admin | rischi | titolo:nome
+  codice*!:text "Codice registro"
+  nome*:text "Nome del registro"
+  prefisso*!:text "Prefisso dei codici"
+  tipo*:select{Rischi/Opportunità}=Rischi "Tipo"
+  metodoId*:ref>MetodiRischio "Metodo di valutazione"
+  attivo:bool=SI "Attivo"
+
+# Rischi | Rischi e opportunità | Rischi e opportunità | admin | rischi | titolo:codice+descrizione
+  codice:text(ro) "Codice"
+  registroId*:ref>RegistriRischio "Registro"
+  stato:select{Proposta/Attivo/Chiuso}=Attivo "Stato"
+  valutazione:text(calc) "Valutazione iniziale"
+  residua:text(calc) "Valutazione residua"
+  prossimoRiesame:date "Prossimo riesame"
+  processoId:ref>Processi "Processo"
+  descrizione*:textarea "Descrizione"
+  causa:textarea "Causa"
+  effetto:textarea "Effetto"
+  fonte:text "Fonte"
+  trattamento:textarea "Trattamento"
+  responsabileId:ref>Dipendenti "Responsabile"
+  nAzioni:text(calc) "Azioni"
+  efficacia:textarea "Valutazione dell'efficacia"
+  note:textarea "Note"
+  valIniziale:hidden
+  valResidua:hidden
 
 # Manutenzioni | Manutenzioni | Registrazioni | reg | attrezzature | FIRME | figli:ManutenzioniRighe(manutenzioneId) | titolo:data
   data*:date=today "Data"
@@ -468,7 +510,7 @@ function analizza(testo) {
     if (!riga) continue;
     if (riga.startsWith('#')) {
       const p = riga.slice(1).split('|').map(s => s.trim());
-      ent = { name: p[0], label: p[1], group: p[2] === '-' ? '' : p[2], perm: p[3], pack: p[4],
+      ent = { name: p[0], label: p[1], group: p[2] === '-' ? '' : p[2], perm: p[3], packs: p[4].split('+'), pack: p[4].split('+')[0],
         signers: false, child: false, children: [], title: [], auto: '', fields: [] };
       for (const x of p.slice(5)) {
         if (x === 'FIRME') ent.signers = true;

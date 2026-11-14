@@ -245,7 +245,7 @@ function daToken(ctx, token) {
   if (typeof token !== 'string' || token.length < 32) return null;
   const h = sha(token), ora = new Date().toISOString();
   const f = [...ctx.st.tabella('Firme').values()].find(x => x.token === h && x.stato === 'In attesa' && x.tokenScad > ora);
-  if (!f || !SCHEMA[f.rifEntity] || !ctx.pacchetti.has(SCHEMA[f.rifEntity].pack)) return null;
+  if (!f || !SCHEMA[f.rifEntity] || !eng().entitaAttiva(ctx, f.rifEntity)) return null;
   const riga = ctx.st.tabella(f.rifEntity).get(f.rifId);
   const s = riga && firmatari(ctx, f.rifEntity, riga).find(x => x.key === f.signerKey);
   return s ? { f, riga, s } : null;

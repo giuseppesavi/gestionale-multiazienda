@@ -36,7 +36,7 @@ function png() {
   const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
   return 'data:image/png;base64,' + Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), pezzo('IHDR', ihdr), pezzo('IDAT', zlib.deflateSync(raw)), pezzo('IEND', Buffer.alloc(0))]).toString('base64');
 }
-const TUTTI = ['dpi', 'formazione', 'competenze', 'sanitaria', 'nc', 'attrezzature', 'fornitori', 'strumenti', 'documenti'];
+const TUTTI = ['dpi', 'formazione', 'competenze', 'sanitaria', 'nc', 'attrezzature', 'fornitori', 'strumenti', 'documenti', 'rischi'];
 
 test.before(async () => {
   db = await apriDb({});
@@ -161,7 +161,7 @@ test('import documenti: la revisione più alta va in vigore, collegamenti, distr
   assert.equal(dist.create, 2);                                                              // Paola e Luca hanno la mansione OP
 });
 
-test('stampe: tutte le 22 stampe producono un PDF valido; permessi rispettati', async () => {
+test('stampe: tutte le 23 stampe producono un PDF valido; permessi rispettati', async () => {
   const guanti = (await S('TipiDpi', { codice: 'G', descrizione: 'Guanti – taglia “M”' })).riga.id;
   const luca = (await E('Dipendenti', 'Verdi'))[0].id;
   const cons = await S('Consegne', { dipendenteId: luca }, { ConsegneRighe: [{ dpiId: guanti, quantita: 2 }] });
@@ -180,7 +180,10 @@ test('stampe: tutte le 22 stampe producono un PDF valido; permessi rispettati', 
   const id = { verbaleConsegna: cons.riga.id, registroCorso: (await E('Corsi'))[0].id, moduloNc: (await E('NC', 'NC-2024-007'))[0].id, valutazione: val, rapportoManutenzione: man,
     schedaAttrezzatura: attr, storicoAttrezzatura: attr, schedaDpi: guanti, schedaMansione: mansione, moduloQualifica: (await E('QualificheFornitori'))[0].id, rapportoTaratura: tar,
     schedaStrumento: str, schedaDocumento: (await E('Documenti', 'PR-01')).find(d => d.stato === 'In vigore').id, storicoDipendente: luca };
-  assert.equal(Object.keys(STAMPE).length, 22);
+  const registro = (await api(ta, 'funzione', { nome: 'rischi.metodi' })).registri.find(r => r.codice === 'QUALITA').id;
+  await api(ta, 'funzione', { nome: 'rischi.salva', registroId: registro, descrizione: 'Ritardo del fornitore critico', valori: { P: 2, G: 3 } });
+  id.pianoRischi = registro;
+  assert.equal(Object.keys(STAMPE).length, 23);
   for (const nome of Object.keys(STAMPE)) {
     const f = await api(ta, 'stampa', { nome, id: id[nome] });
     const buf = Buffer.from(f.base64, 'base64');
@@ -262,13 +265,13 @@ test('esportazione dei dati aziendali: conferma con codice, contenuto dell\'arch
   assert.equal(rip.allegati, 1);
   const tc = await accedi('copia', 'mario@scambio.it', '1.0.0.9');
   const elenco = async (t, az, e) => (await sis.api(az, [t, 'elenco', { entita: e }], '6.6.6.6')).righe.length;
-  for (const e of ['Dipendenti', 'NC', 'Corsi', 'Documenti', 'PreseVisione', 'Tarature', 'Firme']) assert.equal(await elenco(tc, 'copia', e), await elenco(ta, A, e), e);
+  for (const e of ['Dipendenti', 'NC', 'Corsi', 'Documenti', 'PreseVisione', 'Tarature', 'Firme', 'Rischi', 'MetodiRischio']) assert.equal(await elenco(tc, 'copia', e), await elenco(ta, A, e), e);
   const consegna = (await sis.api('copia', [tc, 'elenco', { entita: 'Consegne' }], '6.6.6.6')).righe[0];
   const firmata = await sis.api('copia', [tc, 'leggi', { entita: 'Consegne', id: consegna.id }], '6.6.6.6');
   assert.equal(firmata.firmata, true);
   assert.equal((await sis.scaricaFile('copia', tc, firmata.firme[0].file.split('|')[0])).mime, 'image/png');
   const az = (await sis.admin('aziende.elenco')).find(a => a.codice === 'copia');
-  assert.deepEqual([az.licenza.classe, az.pacchetti.length], [2, 9]);
+  assert.deepEqual([az.licenza.classe, az.pacchetti.length], [2, 10]);
 });
 
 test('web: l\'archivio si scarica solo con sessione e codice, oppure con la chiave della piattaforma', async () => {

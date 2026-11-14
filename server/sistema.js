@@ -43,8 +43,10 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
 
   // Setup automatico: aggiunge i valori iniziali mancanti. Non cancella né rinomina mai nulla.
   function prepara(st, az) {
-    if (st.prop('setup') >= 1) return;
+    if (st.prop('setup') >= 2) return;
     const ctx = ctxInterno(st, az);
+    require('../app/rischi').predefiniti(ctx);   // metodi di valutazione e registri dei rischi iniziali
+    if (st.prop('setup') >= 1) { st.setProp('setup', 2); return; }
     const logPrima = new Set(st.tabella('Log').keys());
     const presenti = new Set([...st.tabella('Elenchi').values()].map(r => r.categoria));
     for (const [categoria, valori] of Object.entries(ELENCHI)) {
@@ -54,7 +56,7 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
     if (!st.tabella('FattoriRischio').size) for (const [descrizione, riferimento] of FATTORI_RISCHIO) eng.salva(ctx, 'FattoriRischio', { descrizione, riferimento });
     if (!st.tabella('DomandeQualifica').size) DOMANDE_QUALIFICA.forEach((domanda, i) => eng.salva(ctx, 'DomandeQualifica', { domanda, ordine: i + 1 }));
     for (const r of [...st.tabella('Log').values()]) if (!logPrima.has(r.id)) st.togli('Log', r.id); // il setup non riempie il registro
-    st.setProp('setup', 1);
+    st.setProp('setup', 2);
   }
 
   // ---------- allegati ----------

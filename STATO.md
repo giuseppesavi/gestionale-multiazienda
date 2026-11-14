@@ -19,7 +19,9 @@ Aggiornato al 13/11/2026.
 - **Fase 6 – Excel**: lettura/scrittura .xlsx e .csv; 6 import (modello, verifica senza scrittura, importa); export di scheda dipendente, registro strumenti, registro sanitario.
 - **Esportazione dei dati aziendali**: archivio .zip con Excel leggibile, file di ripristino e allegati; per pacchetti; confermata con codice via e-mail (azienda) o con la chiave della piattaforma; ripristino in una nuova azienda.
 
-I test sono ora 44 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`). File di esempio: `node test/esempi.js` (cartella `esempi/`).
+- **Pacchetto Rischi e opportunità** (portato da `Risks.gs` del progetto SGI): registri (qualità, sicurezza, ambiente, opportunità), metodi di valutazione configurabili con quattro predefiniti, valutazione iniziale e residua con istantanea del metodo, proposte da confermare, chiusura con motivo, azioni con avviso al responsabile, completamento e verifica dell'efficacia, piano di gestione in PDF e come documento controllato.
+
+I test sono ora 51 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`, `rischi`). File di esempio: `node test/esempi.js` (cartella `esempi/`).
 
 ## Da fare
 
@@ -31,6 +33,8 @@ I test sono ora 44 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`). Fil
 - Pubblicazione: archivio GitHub e `render.yaml` (da creare dopo conferma dei piani e dei costi Render).
 
 ## Questioni aperte
+
+- Archivio GitHub `sgi`: non leggibile (privato); il pacchetto Rischi è stato costruito dallo script incollato. L'elenco dei registri e i permessi (`risk.view` / `risk.manage`) dell'originale sono stati ricostruiti: amministratori gestiscono, tutti gli utenti consultano.
 
 - Variabile `PIATTAFORMA_EMAIL`: indirizzo del fornitore che riceve le segnalazioni di licenza.
 - Il conteggio della licenza considera gli addetti attivi (non cessati), interinali compresi.

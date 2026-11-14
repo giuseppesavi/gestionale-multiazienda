@@ -558,3 +558,4 @@ module.exports = {
 };
 
 require('./documenti').installa(module.exports);
+require('./rischi').installa(module.exports);
