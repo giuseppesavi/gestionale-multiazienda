@@ -1,6 +1,17 @@
 # Stato del progetto
 
-Aggiornato al 13/11/2026.
+Aggiornato al 14/11/2026.
+
+## Dove siamo fermi (14/11/2026)
+
+- **GitHub**: il codice è nell'archivio privato `giuseppesavi/gestionale-multiazienda`, ramo `main`.
+- **Render**: la pubblicazione è **sospesa**. Il Blueprint è stato provato con il piano gratuito ma Render ha rifiutato il database: l'account ha già un database gratuito attivo (quello del gestionale attuale) e ne è ammesso uno solo. Non è stato creato nulla e non ci sono costi.
+- **Da decidere alla ripresa** (scelta del committente):
+  1. condividere il database gratuito esistente, in un'area separata con tabelle proprie (0 $; richiede una piccola modifica al codice e l'indirizzo interno del database copiato da Render);
+  2. database a pagamento dedicato (circa 6 $ al mese, più lo spazio su disco; sito ancora gratuito);
+  3. restare in locale con `node test/demo.js`.
+- **Posta**: sul piano gratuito Render blocca l'invio di e-mail. Il gestionale funziona senza: codici di accesso dal pannello `/admin` (pulsante "Accessi"), e-mail non partite leggibili nel registro della posta.
+- **Mai provato su un vero PostgreSQL**: finora ha girato solo sul database in memoria dei test. Il primo avvio su Render va verificato subito con l'azienda dimostrativa.
 
 ## Fatto e provato (`npm test`: 12 test superati)
 
@@ -39,7 +50,7 @@ I test sono ora 60 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`, `ris
 - Fase 10: test automatici dell'interfaccia nel browser (oggi la prova è stata fatta a mano con uno script nel browser, non fa parte di `npm test`).
 - QR code a schermo (oggi il QR è solo nelle stampe).
 - README in italiano semplice.
-- Pubblicazione: archivio GitHub e `render.yaml` (da creare dopo conferma dei piani e dei costi Render).
+- Pubblicazione su Render: vedi "Dove siamo fermi".
 
 ## Questioni aperte
 
