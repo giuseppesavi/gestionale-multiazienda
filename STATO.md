@@ -21,15 +21,21 @@ Aggiornato al 13/11/2026.
 
 - **Pacchetto Rischi e opportunità** (portato da `Risks.gs` del progetto SGI): registri (qualità, sicurezza, ambiente, opportunità), metodi di valutazione configurabili con quattro predefiniti, valutazione iniziale e residua con istantanea del metodo, proposte da confermare, chiusura con motivo, azioni con avviso al responsabile, completamento e verifica dell'efficacia, piano di gestione in PDF e come documento controllato.
 
-I test sono ora 51 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`, `rischi`). File di esempio: `node test/esempi.js` (cartella `esempi/`).
+- **Fase 7 – Scadenzario e cruscotto**: manutenzioni, formazione (anche richiesta e mai svolta), azioni, riesame dei rischi, DPI, strumenti, missioni, visite, prese visione, riesame documenti; contatori e licenza.
+- **Fase 8 – Pannello della piattaforma** (`/admin`): aziende con classe, pacchetti, addetti e spazio usato; creazione, sospensione, eliminazione, esportazione, ripristino; codici di accesso e sblocco; registro e prova della posta.
+- **Interfaccia nel browser**: accesso con codice, menu a gruppi con 📌, elenchi, maschere con griglie, firme (credenziali, PIN, schermo, scansione, link), pagina pubblica di firma, cruscotto, scadenzario, scheda dipendente, I miei documenti, rischi con matrice, metodi, import, configurazione, esportazione dati. Provata nel browser: nessun errore su 19 pagine, 31 elenchi, 29 schede e 27 schede nuove; nessuno scorrimento orizzontale a 390 px.
+- **Limite di frequenza**: 1500 richieste ogni 5 minuti per IP (`LIMITE_RICHIESTE`), 60 per il pannello.
+
+I test sono ora 56 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`, `rischi`, `cruscotto`). Per provare l'interfaccia in locale: `node test/demo.js`, poi http://localhost:3210/a/rossi/ (i codici di accesso compaiono sul terminale). File di esempio: `node test/esempi.js` (cartella `esempi/`).
 
 ## Da fare
 
 - Rimasto dalla fase 4: funzione "Collega mansioni alle valutazioni".
 - Import di tutti i dati dalla versione Google Fogli (pannello piattaforma).
-- Fase 7: scadenzario e cruscotto. Fase 8: pannello `/admin` (oggi esiste solo l'API).
-- Interfaccia nel browser (oggi c'è solo una pagina segnaposto).
-- Fase 9: limiti di frequenza, upload, riserva SMTP. Fase 10: test nel browser.
+- Fase 9: riserva SMTP sulla seconda porta e verifica del collegamento alla posta.
+- Fase 10: test automatici dell'interfaccia nel browser (oggi la prova è stata fatta a mano con uno script nel browser, non fa parte di `npm test`).
+- QR code a schermo (oggi il QR è solo nelle stampe).
+- README in italiano semplice.
 - Pubblicazione: archivio GitHub e `render.yaml` (da creare dopo conferma dei piani e dei costi Render).
 
 ## Questioni aperte

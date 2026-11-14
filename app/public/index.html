@@ -3,10 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
   <title>Gestionale Sicurezza &amp; Qualità</title>
+  <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <h1>Gestionale Sicurezza &amp; Qualità</h1>
-  <p>Il server è attivo. L'interfaccia è in costruzione.</p>
+  <div class="centro">
+    <form class="scatola" id="vai">
+      <h1>Gestionale Sicurezza &amp; Qualità</h1>
+      <p>Scrivi il codice della tua azienda per accedere.</p>
+      <div class="riga"><input id="codice" autocomplete="organization" placeholder="codice azienda" aria-label="Codice azienda" required></div>
+      <button class="primario" type="submit">Continua</button>
+    </form>
+  </div>
+  <script src="/ingresso.js"></script>
 </body>
 </html>

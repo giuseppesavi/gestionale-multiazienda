@@ -17,6 +17,7 @@ const importa = require('../app/importa');
 const esp = require('../app/esporta');
 const stampe = require('../app/stampe');
 const xlsx = require('./xlsx');
+const crus = require('../app/cruscotto');
 
 // Tipi di file ammessi negli allegati (il tipo è dedotto dall'estensione, non da quanto dichiara il browser).
 const TIPI_FILE = {
@@ -261,11 +262,22 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
           }
           case 'accesso.sblocca': soloAdmin(); return pin.sblocca(ctx, p.dipId);
           case 'esci': return auth.esci(st, token);
+          case 'cruscotto': return crus.cruscotto(ctx);
+          case 'scadenzario': return crus.scadenzario(ctx, p);
+          case 'config.leggi': return crus.configLeggi(ctx);
+          case 'config.salva': return crus.configSalva(ctx, p);
+          case 'pref.salva': {   // preferenze dell'utente (gruppi del menu fissati aperti)
+            const menu = {};
+            for (const [k, v] of Object.entries(p.menu && typeof p.menu === 'object' ? p.menu : {}).slice(0, 30)) menu[String(k).slice(0, 60)] = !!v;
+            st.setProp('pref:' + utente.id, { menu });
+            return { menu };
+          }
           case 'avvio': return {
             utente, azienda: { codice: az.id, nome: az.nome },
             pacchetti: lic.PACCHETTI.filter(x => ctx.pacchetti.has(x.id)),
             licenza: lic.statoLicenza(st, az, eng.oggi()),
             schema: eng.schemaPerUtente(ctx), oggi: eng.oggi(),
+            config: crus.configPubblica(ctx), elenchi: crus.elenchi(ctx), pref: st.prop('pref:' + utente.id) || {},
           };
           case 'elenco': return eng.elenco(ctx, p.entita, p);
           case 'leggi': return eng.leggi(ctx, p.entita, p.id);
@@ -295,12 +307,47 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
   const AMMIN = {
     async 'catalogo'() { return { classi: lic.CLASSI, pacchetti: lic.PACCHETTI }; },
 
+    async 'stato'() { return { posta: !!postino.configurata, database: db.pglite ? 'In memoria (prova)' : 'PostgreSQL' }; },
+    async 'posta.registro'() { return postino.registro || []; },
+    async 'posta.prova'(p) {
+      const a = String(p.a || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)) throw new ErroreUtente('Indica un indirizzo e-mail valido.');
+      return { inviata: await postino.invia({ a, oggetto: 'Prova di invio dal gestionale', testo: 'Questa è un\'e-mail di prova: se la leggi, la posta del gestionale funziona.' }) };
+    },
+    // Genera un codice di accesso per un utente (fase di prova, oppure posta non funzionante). Resta nel registro dell'azienda.
+    async 'accesso.codice'(p) {
+      const az = await leggiAzienda(p.codice);
+      if (!az) throw new ErroreUtente('Azienda non trovata.');
+      const email = String(p.email || '').trim().toLowerCase();
+      return archivio.conAzienda(az.id, async st => {
+        prepara(st, az);
+        if (!auth.trovaUtente(st, email)) throw new ErroreUtente('Questo indirizzo non corrisponde a un utente abilitato dell\'azienda.');
+        const r = auth.nuovoCodice(st, email);
+        eng.registra({ st, utente: { email: 'piattaforma' } }, 'Accesso', 'Codice di accesso generato dalla piattaforma per ' + email);
+        return r;
+      });
+    },
+    async 'accesso.sblocca'(p) {
+      const az = await leggiAzienda(p.codice);
+      if (!az) throw new ErroreUtente('Azienda non trovata.');
+      const email = String(p.email || '').trim().toLowerCase();
+      return archivio.conAzienda(az.id, async st => {
+        const d = auth.trovaUtente(st, email);
+        if (!d) throw new ErroreUtente('Questo indirizzo non corrisponde a un utente abilitato dell\'azienda.');
+        return pin.sblocca({ st, utente: { email: 'piattaforma' } }, d.id);
+      });
+    },
+
     async 'aziende.elenco'() {
+      const nr = await db.query('select tenant, count(*)::int as n, coalesce(sum(length(data::text)), 0)::float8 as b from rows group by tenant');
+      const nf = await db.query('select tenant, count(*)::int as n, coalesce(sum(dimensione), 0)::float8 as b from files group by tenant');
+      const righeDi = new Map(nr.rows.map(x => [x.tenant, x])), fileDi = new Map(nf.rows.map(x => [x.tenant, x]));
       const r = await db.query('select id, nome, email_admin, classe, pacchetti, attiva, creato from tenants order by nome');
       const out = [];
       for (const az of r.rows) {
         const licenza = await archivio.conAzienda(az.id, async st => lic.statoLicenza(st, az, eng.oggi()));
-        out.push({ codice: az.id, nome: az.nome, emailAdmin: az.email_admin, attiva: az.attiva, creato: az.creato, pacchetti: az.pacchetti, licenza });
+        const r = righeDi.get(az.id) || { n: 0, b: 0 }, f = fileDi.get(az.id) || { n: 0, b: 0 };
+        out.push({ codice: az.id, nome: az.nome, emailAdmin: az.email_admin, attiva: az.attiva, creato: az.creato, pacchetti: az.pacchetti, licenza, righe: r.n, file: f.n, spazio: Number(r.b) + Number(f.b) });
       }
       return out;
     },
@@ -449,8 +496,23 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
       res.status(413).json({ ok: false, error: 'Richiesta troppo grande.' });
     } catch (e) { rispostaErrore(res, e); }
   });
+  // Limite di frequenza per indirizzo IP (finestra di 5 minuti).
+  const contatori = new Map();
+  setInterval(() => { const ora = Date.now(); for (const [k, c] of contatori) if (c.fine < ora) contatori.delete(k); }, 5 * 60000).unref();
+  const limite = max => (req, res, next) => {
+    const k = max + '|' + req.ip, ora = Date.now();
+    let c = contatori.get(k);
+    if (!c || c.fine < ora) { c = { n: 0, fine: ora + 5 * 60000 }; contatori.set(k, c); }
+    if (++c.n > max) return res.status(429).json({ ok: false, error: 'Troppe richieste in poco tempo. Riprova tra qualche minuto.' });
+    next();
+  };
+  app.use(limite(Number(process.env.LIMITE_RICHIESTE) || 1500));
+  app.use(['/admin/api', '/admin/esporta'], limite(60));
   app.use(express.json({ limit: '22mb' }));
   app.get('/health', (req, res) => res.json({ ok: true }));
+  const pagina = nome => (req, res) => res.sendFile(path.join(__dirname, '..', 'app', 'public', nome));
+  app.get(['/a/:azienda', '/a/:azienda/'], pagina('app.html'));
+  app.get('/admin', pagina('admin.html'));
 
   app.post('/a/:azienda/run', async (req, res) => {
     try {
