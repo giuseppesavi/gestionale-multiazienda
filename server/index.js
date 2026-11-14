@@ -6,6 +6,8 @@ const { creaPostino } = require('./mail');
 const { creaSistema } = require('./sistema');
 
 async function avvia() {
+  // In produzione non si parte mai senza database: i dati andrebbero persi a ogni riavvio.
+  if (!process.env.DATABASE_URL && (process.env.RENDER || process.env.NODE_ENV === 'production')) throw new Error('DATABASE_URL non impostata: il gestionale non può partire senza database.');
   if (!process.env.DATABASE_URL) console.warn('DATABASE_URL non impostata: uso un database temporaneo in memoria (i dati si perdono al riavvio).');
   if (!process.env.ADMIN_KEY) console.warn('ADMIN_KEY non impostata: il pannello di amministrazione è disattivato.');
   const db = await apriDb({ url: process.env.DATABASE_URL });

@@ -1,0 +1,46 @@
+# Blueprint di Render: un servizio web e un database PostgreSQL, regione Francoforte.
+# Piano scelto dal committente il 14/11/2026: PROVA GRATUITA.
+#   - sito gratuito: si addormenta dopo 15 minuti senza visite;
+#   - database gratuito: scade 30 giorni dopo la creazione, senza copie di sicurezza.
+# Per passare alla produzione cambiare i due "plan" (sito: 0.5c-512mb, database: 0.1c-256mb)
+# SOLO dopo conferma del committente: comporta costi.
+
+services:
+  - type: web
+    name: gestionale-multiazienda
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: TZ
+        value: Europe/Rome
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gestionale-multiazienda-db
+          property: connectionString
+      - key: ADMIN_KEY          # chiave del pannello /admin, generata da Render
+        generateValue: true
+      - key: PIATTAFORMA_EMAIL  # indirizzo del fornitore per le segnalazioni di licenza
+        sync: false
+      - key: SMTP_HOST          # posta in uscita (facoltativa: si può impostare in seguito)
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+databases:
+  - name: gestionale-multiazienda-db
+    plan: free
+    region: frankfurt
+    ipAllowList: []            # il database non è raggiungibile da Internet
