@@ -26,7 +26,10 @@ Aggiornato al 13/11/2026.
 - **Interfaccia nel browser**: accesso con codice, menu a gruppi con 📌, elenchi, maschere con griglie, firme (credenziali, PIN, schermo, scansione, link), pagina pubblica di firma, cruscotto, scadenzario, scheda dipendente, I miei documenti, rischi con matrice, metodi, import, configurazione, esportazione dati. Provata nel browser: nessun errore su 19 pagine, 31 elenchi, 29 schede e 27 schede nuove; nessuno scorrimento orizzontale a 390 px.
 - **Limite di frequenza**: 1500 richieste ogni 5 minuti per IP (`LIMITE_RICHIESTE`), 60 per il pannello.
 
-I test sono ora 56 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`, `rischi`, `cruscotto`). Per provare l'interfaccia in locale: `node test/demo.js`, poi http://localhost:3210/a/rossi/ (i codici di accesso compaiono sul terminale). File di esempio: `node test/esempi.js` (cartella `esempi/`).
+- **Azienda dimostrativa**: dal pannello della piattaforma, pulsante "＋ Azienda dimostrativa": crea un'azienda con tutti i pacchetti e dati inventati in ogni scheda e in ogni griglia (durante la creazione non parte nessuna e-mail). Si elimina come ogni altra azienda.
+- **Prova di compilazione nel browser (14/11/2026)**: compilate e salvate tutte le 29 maschere (26 schede con le griglie, voce di rischio, metodo, configurazione), firma disegnata, 21 stampe sulle schede appena create, vista dell'utente non amministratore. Nessun errore.
+
+I test sono ora 60 (`test/base`, `firme`, `moduli`, `documenti`, `scambio`, `rischi`, `cruscotto`, `dimostrativa`). Per provare l'interfaccia in locale: `node test/demo.js`, poi http://localhost:3210/a/rossi/ (i codici di accesso compaiono sul terminale). File di esempio: `node test/esempi.js` (cartella `esempi/`).
 
 ## Da fare
 

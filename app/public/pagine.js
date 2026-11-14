@@ -262,6 +262,7 @@
     const tipo = resto[0];
     const NOMI = { attrezzature: 'attrezzature', dipendenti: 'dipendenti', formazione: 'formazione storica', soggetti: 'clienti e fornitori', nc: 'non conformità e azioni', documenti: 'elenco documenti' };
     if (!NOMI[tipo]) throw new Error('Importazione non riconosciuta.');
+    if (!G.S.utente.admin) throw new Error('Le importazioni sono riservate agli amministratori.');
     const file = h('input', { type: 'file', accept: '.xlsx,.csv' }), esito = h('div', {});
     const esegui = (prova_) => async e => prova(async () => {
       if (!file.files[0]) throw new Error('Scegli prima il file da importare.');
@@ -302,6 +303,7 @@
   };
 
   G.PAGINE.esporta = async () => {
+    if (!G.S.utente.admin) throw new Error('L\'esportazione dei dati è riservata agli amministratori.');
     const pk = G.S.pacchetti.filter(p => p.id !== 'base').map(p => { const c = h('input', { type: 'checkbox', value: p.id }); c.checked = true; return h('label', {}, c, p.nome); });
     const all = h('input', { type: 'checkbox' }), codice = h('input', { class: 'codice', inputmode: 'numeric', maxlength: '6', placeholder: '······', 'aria-label': 'Codice di conferma' });
     return h('div', {}, titolo('Esporta i dati aziendali'), h('div', { class: 'card' },

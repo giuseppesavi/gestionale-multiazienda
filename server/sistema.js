@@ -29,6 +29,10 @@ const TIPI_FILE = {
 const MAX_FILE = 15 * 1024 * 1024;
 
 function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
+  // Durante la creazione di un'azienda dimostrativa la posta viene messa in pausa (dati inventati: nessuna e-mail deve partire).
+  const inviaVero = postino.invia.bind(postino);
+  let postaInPausa = false;
+  postino = Object.assign(Object.create(postino), { invia: m => (postaInPausa ? Promise.resolve(true) : inviaVero(m)) });
   const archivio = new Archivio(db);
   const auth = creaAuth({ postino });
 
@@ -373,6 +377,26 @@ function creaSistema({ db, postino, adminKey, emailPiattaforma }) {
           eng.salva(ctxInterno(st, az), 'Dipendenti', { cognome: a.cognome, nome: a.nome, email, utente: 'SI', ruolo: 'Amministratore' });
         });
       } catch (e) { await db.query('delete from tenants where id = $1', [codice]); throw e; }
+      return { codice };
+    },
+
+    // Crea un'azienda dimostrativa con dati inventati in tutte le schede (per prove e dimostrazioni).
+    async 'aziende.demo'(p) {
+      const { semina, TUTTI_I_PACCHETTI } = require('../app/dimostrativa');
+      const admin = p.admin || {};
+      const email = String(admin.email || '').trim().toLowerCase();
+      const { codice } = await AMMIN['aziende.crea']({ codice: p.codice, nome: p.nome || 'Azienda dimostrativa Srl', classe: p.classe || 2, pacchetti: TUTTI_I_PACCHETTI, admin });
+      postaInPausa = true;
+      try {
+        const c = await AMMIN['accesso.codice']({ codice, email });
+        const t = (await api(codice, [null, 'otp.verifica', { email, codice: c.codice }], 'piattaforma')).token;
+        await semina((azione, par) => api(codice, [t, azione, par || {}], 'piattaforma'), { emailUtente: String(p.emailUtente || '').trim().toLowerCase() });
+        await api(codice, [t, 'esci', {}], 'piattaforma');
+      } catch (e) {
+        await db.tx(async t => { for (const tab of ['rows', 'props', 'files']) await t.query('delete from ' + tab + ' where tenant = $1', [codice]); await t.query('delete from tenants where id = $1', [codice]); });
+        archivio.dimentica(codice);
+        throw e;
+      } finally { postaInPausa = false; }
       return { codice };
     },
 

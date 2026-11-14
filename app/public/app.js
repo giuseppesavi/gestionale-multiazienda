@@ -256,7 +256,7 @@ const G = window.G = {};
   // ---------- elenco ----------
   async function elenco(e) {
     const E = G.S.schema[e];
-    if (!E || E.child) throw new Error('Questa sezione non è disponibile per la tua azienda.');
+    if (!E || E.child) throw new Error('Questa sezione non è disponibile: il pacchetto non è attivo per la tua azienda oppure non hai i permessi per vederla.');
     const d = await api('elenco', { entita: e });
     const col = E.fields.filter(f => f.inList);
     const filtri = col.filter(f => f.filter && f.type !== 'bool');
@@ -331,7 +331,7 @@ const G = window.G = {};
 
   async function scheda(e, id, par) {
     const E = G.S.schema[e];
-    if (!E || E.child) throw new Error('Questa sezione non è disponibile per la tua azienda.');
+    if (!E || E.child) throw new Error('Questa sezione non è disponibile: il pacchetto non è attivo per la tua azienda oppure non hai i permessi per vederla.');
     const nuovo = id === 'nuovo';
     const d = nuovo ? { riga: {}, figli: {}, puoScrivere: E.puoScrivere, firme: null, firmata: false } : await api('leggi', { entita: e, id });
     const dati = { ...d.riga };
@@ -349,7 +349,7 @@ const G = window.G = {};
     const involucri = [];
     const aggiornaVis = () => { for (const [f, el] of involucri) el.classList.toggle('nascosto', !visibile(f, dati)); };
     const griglia = h('div', { class: 'griglia' }, E.fields.filter(f => f.type !== 'fk').map(f => {
-      const el = h('div', { class: 'campo' + (f.w === 'full' || f.type === 'multiref' ? ' pieno' : '') }, h('label', {}, f.label, f.req ? h('span', { class: 'obbl' }, ' *') : null),
+      const el = h('div', { 'data-campo': f.name, class: 'campo' + (f.w === 'full' || f.type === 'multiref' ? ' pieno' : '') }, h('label', {}, f.label, f.req ? h('span', { class: 'obbl' }, ' *') : null),
         controllo(f, dati[f.name], v => { dati[f.name] = v; aggiornaVis(); }, bloccato));
       involucri.push([f, el]);
       return el;
@@ -363,13 +363,13 @@ const G = window.G = {};
       const disegna = () => {
         const righe = figli[c.e];
         box.replaceChildren(h('div', { class: 'scorri figli' }, h('table', {}, h('thead', {}, h('tr', {}, campi.map(f => h('th', {}, f.label, f.req ? ' *' : '')), bloccato ? null : h('th', {}, ''))),
-          h('tbody', {}, righe.length ? righe.map((r, i) => h('tr', {}, campi.map(f => h('td', {}, visibile(f, r) ? controllo(f, r[f.name], v => { const cambia = campi.some(x => x.showIf && x.showIf[f.name] !== undefined); r[f.name] = v; if (cambia) disegna(); }, bloccato) : '')),
+          h('tbody', {}, righe.length ? righe.map((r, i) => h('tr', {}, campi.map(f => h('td', { 'data-campo': f.name }, visibile(f, r) ? controllo(f, r[f.name], v => { const cambia = campi.some(x => x.showIf && x.showIf[f.name] !== undefined); r[f.name] = v; if (cambia) disegna(); }, bloccato) : '')),
             bloccato ? null : h('td', { class: 'stretto' }, h('button', { class: 'piccolo pericolo', type: 'button', 'aria-label': 'Togli la riga', onclick: () => { righe.splice(i, 1); disegna(); } }, '✕'))))
             : h('tr', {}, h('td', { colspan: String(campi.length + 1), class: 'tenue' }, 'Nessuna riga.'))))),
           bloccato ? null : h('div', { class: 'barra' }, h('button', { class: 'piccolo', type: 'button', onclick: () => { const r = {}; for (const f of campi) if (!f.virtual) r[f.name] = predef(f); righe.push(r); disegna(); } }, '＋ Aggiungi riga')));
       };
       disegna();
-      return { c, disegna, nodo: h('div', { class: 'card' }, h('h2', {}, c.l), box) };
+      return { c, disegna, nodo: h('div', { class: 'card', 'data-figlio': c.e }, h('h2', {}, c.l), box) };
     });
 
     const raccogli = () => {
@@ -410,14 +410,16 @@ const G = window.G = {};
     let giu = false;
     const punto = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
     c.addEventListener('pointerdown', e => { giu = true; c.setPointerCapture(e.pointerId); x.beginPath(); x.moveTo(...punto(e)); e.preventDefault(); });
-    c.addEventListener('pointermove', e => { if (!giu) return; x.lineTo(...punto(e)); x.stroke(); });
+    c.addEventListener('pointermove', e => { if (!giu) return; x.lineTo(...punto(e)); x.stroke(); c.tracciata = true; });
     c.addEventListener('pointerup', () => { giu = false; });
-    c.pulisci = () => x.clearRect(0, 0, c.width, c.height);
+    c.pulisci = () => { x.clearRect(0, 0, c.width, c.height); c.tracciata = false; };
+    // Restituisce l'immagine della firma; se il riquadro è vuoto avvisa subito, senza chiudere la finestra.
+    c.immagine = () => { if (!c.tracciata) throw new Error('Il riquadro della firma è vuoto: disegna la firma prima di confermare.'); return c.toDataURL('image/png'); };
     return c;
   }
   async function firmaDisegnata(titolo) {
     const c = tavoletta();
-    return finestra(titolo, h('div', {}, h('p', { class: 'tenue' }, 'Firma con il dito o con il mouse nel riquadro.'), c), [{ t: 'Annulla', valore: null }, { t: 'Cancella', fn: () => { c.pulisci(); } }, { t: 'Conferma la firma', classe: 'primario', valore: undefined, fn: () => c.toDataURL('image/png') }]);
+    return finestra(titolo, h('div', {}, h('p', { class: 'tenue' }, 'Firma con il dito o con il mouse nel riquadro.'), c), [{ t: 'Annulla', valore: null }, { t: 'Cancella', fn: () => { c.pulisci(); } }, { t: 'Conferma la firma', classe: 'primario', valore: undefined, fn: () => c.immagine() }]);
   }
   function riquadroFirme(e, id, firme) {
     const box = h('div', { class: 'card firme' });
@@ -463,7 +465,7 @@ const G = window.G = {};
     const fatto = () => root.replaceChildren(h('div', { class: 'scatola' }, h('h1', {}, 'Grazie'), h('p', {}, 'La firma è stata registrata. Puoi chiudere questa pagina.')));
     root.replaceChildren(h('div', { class: 'scatola larga' }, h('h1', {}, 'Richiesta di firma'), h('p', {}, info.azienda + ' ti chiede di firmare:'),
       h('div', { class: 'card' }, h('strong', {}, info.documento), h('br'), info.ruolo + ': ' + info.firmatario), h('p', {}, 'Firma nel riquadro con il dito o con il mouse.'), c,
-      h('div', { class: 'barra' }, h('button', { onclick: () => c.pulisci() }, 'Cancella'), h('button', { class: 'primario', onclick: e => prova(async () => { await api('firmalink.firma', { token, immagine: c.toDataURL('image/png') }); fatto(); }, e.currentTarget) }, 'Conferma la firma')),
+      h('div', { class: 'barra' }, h('button', { onclick: () => c.pulisci() }, 'Cancella'), h('button', { class: 'primario', onclick: e => prova(async () => { await api('firmalink.firma', { token, immagine: c.immagine() }); fatto(); }, e.currentTarget) }, 'Conferma la firma')),
       info.pinDisponibile ? h('div', {}, h('p', {}, 'Oppure firma con il tuo PIN:'), h('div', { class: 'barra' }, pin, h('button', { onclick: e => prova(async () => { await api('firmalink.firma', { token, metodo: 'pin', pin: pin.value }); fatto(); }, e.currentTarget) }, 'Firma con il PIN'))) : null));
   }
 

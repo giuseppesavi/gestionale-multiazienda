@@ -54,6 +54,13 @@
       h('h2', {}, 'Amministratore iniziale'), campo('Cognome', cognome), campo('Nome', nomeA), campo('E-mail', email)),
     [{ t: 'Annulla', valore: null }, { t: 'Crea l\'azienda', classe: 'primario', fn: () => api('aziende.crea', { codice: codice.value, nome: nome.value, classe: Number(classe.value), pacchetti: pk.valori(), admin: { cognome: cognome.value, nome: nomeA.value, email: email.value } }) }]);
   }
+  async function aziendaDemo() {
+    const codice = h('input', { value: 'demo' }), cognome = h('input', {}), nomeA = h('input', {}), email = h('input', { type: 'email' }), utente = h('input', { type: 'email' });
+    return finestra('Azienda dimostrativa', h('div', {}, h('p', { class: 'tenue' }, 'Crea un\'azienda con tutti i pacchetti attivi e dati inventati in ogni scheda (dipendenti, corsi, DPI, manutenzioni, tarature, documenti, rischi…). Serve per provare il gestionale; si può eliminare quando non serve più. Durante la creazione non parte nessuna e-mail.'),
+      campo('Codice dell\'azienda', codice), h('h2', {}, 'Chi la userà come amministratore'), campo('Cognome', cognome), campo('Nome', nomeA), campo('E-mail (riceverà i codici di accesso)', email),
+      campo('E-mail di un secondo utente di prova, con ruolo "Utente registrazioni" (facoltativa)', utente)),
+    [{ t: 'Annulla', valore: null }, { t: 'Crea con dati inventati', classe: 'primario', fn: () => api('aziende.demo', { codice: codice.value, admin: { cognome: cognome.value, nome: nomeA.value, email: email.value }, emailUtente: utente.value }) }]);
+  }
   async function licenza(a) {
     const classe = selClasse(a.licenza.classe), pk = selPacchetti(a.pacchetti), nome = h('input', { value: a.nome });
     return finestra('Licenza – ' + a.nome, h('div', {}, campo('Ragione sociale', nome), campo('Classe di dipendenti (addetti attivi: ' + a.licenza.attivi + ')', classe), campo('Pacchetti attivi', pk),
@@ -91,6 +98,7 @@
     const dest = h('input', { type: 'email', placeholder: 'indirizzo di prova', 'aria-label': 'Indirizzo di prova' });
     root.replaceChildren(h('main', {}, h('div', { class: 'barra' }, h('h1', {}, 'Amministrazione della piattaforma'), h('span', { class: 'spazio' }),
       h('button', { onclick: async () => { if (await ripristina()) { toast('Azienda ripristinata.', 'ok'); ricarica(); } } }, 'Ripristina da archivio'),
+      h('button', { onclick: async () => { if (await aziendaDemo()) { toast('Azienda dimostrativa creata.', 'ok'); ricarica(); } } }, '＋ Azienda dimostrativa'),
       h('button', { class: 'primario', onclick: async () => { if (await nuovaAzienda()) { toast('Azienda creata.', 'ok'); ricarica(); } } }, '＋ Nuova azienda'), h('button', { onclick: () => { CHIAVE = ''; ingresso(); } }, 'Esci')),
     h('div', { class: 'tessere' }, [[aziende.length, 'Aziende'], [aziende.reduce((s, a) => s + a.licenza.attivi, 0), 'Addetti attivi'], [stato.posta ? 'Attiva' : 'Non configurata', 'Posta (SMTP)'], [stato.database, 'Database']].map(x => h('div', { class: 'tessera' }, h('div', { class: 'n' }, x[0]), h('div', { class: 'l' }, x[1])))),
     h('div', { class: 'card' }, h('h2', {}, 'Aziende'), aziende.length ? h('div', { class: 'scorri' }, h('table', {}, h('thead', {}, h('tr', {}, ['Azienda', 'Classe', 'Addetti', 'Pacchetti', 'Dati', 'Stato', ''].map(t => h('th', {}, t)))),
