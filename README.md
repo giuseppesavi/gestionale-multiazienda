@@ -45,6 +45,19 @@ Al raggiungimento del limite l'inserimento di nuovi addetti viene bloccato e par
 | `LIMITE_RICHIESTE` | Richieste ammesse ogni 5 minuti per connessione (predefinito 1500) |
 | `TZ` | `Europe/Rome` |
 
+## Installazione locale con Docker
+
+Serve Docker Desktop acceso. Nella cartella del progetto:
+
+1. crea un file `.env` con tre righe: `ADMIN_KEY=<chiave lunga a piacere>`, `DB_PASSWORD=<password del database>`, `PORTA=8080`;
+2. avvia con `docker compose up -d --build`;
+3. apri `http://localhost:8080/admin` e inserisci la chiave `ADMIN_KEY`.
+
+- I dati stanno nel volume Docker `gestionale_dati-db` e restano anche spegnendo i contenitori (`docker compose down`). Si cancellano solo con `docker compose down -v`.
+- Dopo un aggiornamento del codice: di nuovo `docker compose up -d --build`.
+- Verifica automatica dell'installazione: `node test/verifica-installazione.js http://localhost:8080`.
+- Il gestionale risponde solo da questo computer (`127.0.0.1`); il database non è raggiungibile dall'esterno.
+
 ## Per chi sviluppa
 
 ```bash

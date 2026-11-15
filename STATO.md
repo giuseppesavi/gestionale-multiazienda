@@ -11,7 +11,7 @@ Aggiornato al 14/11/2026.
   2. database a pagamento dedicato (circa 6 $ al mese, più lo spazio su disco; sito ancora gratuito);
   3. restare in locale con `node test/demo.js`.
 - **Posta**: sul piano gratuito Render blocca l'invio di e-mail. Il gestionale funziona senza: codici di accesso dal pannello `/admin` (pulsante "Accessi"), e-mail non partite leggibili nel registro della posta.
-- **Mai provato su un vero PostgreSQL**: finora ha girato solo sul database in memoria dei test. Il primo avvio su Render va verificato subito con l'azienda dimostrativa.
+- **Installazione locale con Docker (15/11/2026)**: funzionante su `http://localhost:8080` con PostgreSQL 17 (`docker compose up -d --build`; chiavi nel file `.env`, che non va su GitHub). Verificata con `test/verifica-installazione.js`: azienda dimostrativa, accesso, dati in ogni scheda, scadenzario, salvataggio, allegato binario, firma, stampa, import, esportazione, riavvio con sessione e dati conservati. È la prima prova su un vero PostgreSQL ed è andata bene.
 
 ## Fatto e provato (`npm test`: 12 test superati)
 

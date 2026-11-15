@@ -1,0 +1,49 @@
+# Installazione locale con Docker: il gestionale e il suo database PostgreSQL.
+#   Avvio:      docker compose up -d --build
+#   Arresto:    docker compose down          (i dati restano nel volume "dati-db")
+#   Registro:   docker compose logs -f app
+# Le chiavi stanno nel file .env accanto a questo (non va mai messo su GitHub).
+name: gestionale
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gestionale
+      POSTGRES_USER: gestionale
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?manca DB_PASSWORD nel file .env}
+      TZ: Europe/Rome
+    volumes:
+      - dati-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gestionale -d gestionale"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # nessuna porta pubblicata: il database è raggiungibile solo dal gestionale
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://gestionale:${DB_PASSWORD}@db:5432/gestionale
+      ADMIN_KEY: ${ADMIN_KEY:?manca ADMIN_KEY nel file .env}
+      URL_PUBBLICO: http://localhost:${PORTA:-8080}
+      TRUST_PROXY_HOPS: "0"
+      TZ: Europe/Rome
+      # Posta (facoltativa): aggiungere nel file .env e togliere il commento qui sotto.
+      # PIATTAFORMA_EMAIL: ${PIATTAFORMA_EMAIL}
+      # SMTP_HOST: ${SMTP_HOST}
+      # SMTP_PORT: ${SMTP_PORT}
+      # SMTP_USER: ${SMTP_USER}
+      # SMTP_PASS: ${SMTP_PASS}
+      # SMTP_FROM: ${SMTP_FROM}
+    ports:
+      - "127.0.0.1:${PORTA:-8080}:3000"   # raggiungibile solo da questo computer
+
+volumes:
+  dati-db:
